@@ -1,0 +1,50 @@
+<link rel="stylesheet" href="{{ 'Country_bloocker.css' | asset_url }}">
+<script src="{{ 'Country_blocker.js' | asset_url }}" async></script>
+<div>
+Vpn Blocker is here    
+</div>
+
+
+
+<script>
+console.log('vpn blocker is here');
+
+// Fetch VPN data from ipapi.is API
+async function checkVpnStatus() {
+    try {
+        const response = await fetch('https://api.ipapi.is/');
+        const data = await response.json();
+        
+        // Console log the VPN status
+        console.log('VPN Status:', data.is_vpn);
+        console.log('Full API Response:', data);
+        
+        return data.is_vpn;
+    } catch (error) {
+        console.error('Error fetching VPN data:', error);
+        return null;
+    }
+}
+
+// Call the function when the page loads
+checkVpnStatus();
+</script>
+
+
+{% schema %}
+    {
+      "name": "Vpn Blocker",
+      "target": "body",
+      "class": "vpn_blocker",
+    
+      "settings": [
+        {
+          "type": "inline_richtext",
+          "id": "Vpnblocker_message",
+          "label": "Vpn Blocker Message",
+          "default": "We're sorry, but our store currently does not ship or operate in your country. Please check back in the future"
+        },
+       
+      ]
+    }
+    {% endschema %}

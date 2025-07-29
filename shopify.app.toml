@@ -3,7 +3,7 @@
 client_id = "a1ab97a46b1da2e22ae82de7c621e32a"
 name = "Rabbi Country Blocker"
 handle = "insta-18"
-application_url = "https://ought-introducing-potential-annoying.trycloudflare.com"
+application_url = "https://generations-seems-duck-fridge.trycloudflare.com"
 embedded = true
 
 [build]
@@ -22,7 +22,7 @@ api_version = "2024-01"
 scopes = "read_products,write_products"
 
 [auth]
-redirect_urls = ["https://ought-introducing-potential-annoying.trycloudflare.com/auth/callback", "https://ought-introducing-potential-annoying.trycloudflare.com/auth/shopify/callback", "https://ought-introducing-potential-annoying.trycloudflare.com/api/auth/callback"]
+redirect_urls = ["https://generations-seems-duck-fridge.trycloudflare.com/auth/callback", "https://generations-seems-duck-fridge.trycloudflare.com/auth/shopify/callback", "https://generations-seems-duck-fridge.trycloudflare.com/api/auth/callback"]
 
 [pos]
 embedded = false
