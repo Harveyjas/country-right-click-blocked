@@ -140,8 +140,9 @@ export const action = async ({ request }) => {
   // Get the form data
   const formData = await request.formData();
   const countries = JSON.parse(formData.get("countries") || "[]");
+  const actionType = formData.get("action_type") || "updated";
   
-  console.log("Saving countries:", countries);
+  console.log("Saving countries:", countries, "Action type:", actionType);
   
   // Get the shop ID
   const response = await admin.graphql(
@@ -216,34 +217,74 @@ export const action = async ({ request }) => {
     }, { status: 500 });
   }
   
-  return json({ success: true });
+  // Create success message based on action type
+  let successMessage = "Countries updated successfully!";
+  if (actionType === "added") {
+    successMessage = countries.length === 1 ? "Country added successfully!" : "Countries added successfully!";
+  } else if (actionType === "removed") {
+    successMessage = "Countries removed successfully!";
+  }
+  
+  return json({ success: true, message: successMessage, actionType });
 };
 
 export default function Index() {
   const { shop, hasPlan, planType, selectedCountries: initialCountries, countryLimit } = useLoaderData();
   const submit = useSubmit();
+  const fetcher = useFetcher();
   const [selectedCountries, setSelectedCountries] = useState(initialCountries || []);
+  const [feedbackMessage, setFeedbackMessage] = useState(null);
+  const [feedbackType, setFeedbackType] = useState("success"); // "success" or "critical"
   
   // Define isPremiumPlan here to fix the reference error
   const isPremiumPlan = planType === "premium";
 
+  // Handle fetcher state changes for visual feedback
+  useEffect(() => {
+    if (fetcher.state === "idle" && fetcher.data) {
+      if (fetcher.data.success) {
+        setFeedbackMessage(fetcher.data.message || "Countries updated successfully!");
+        setFeedbackType("success");
+      } else if (fetcher.data.error) {
+        setFeedbackMessage(`Error: ${fetcher.data.error}`);
+        setFeedbackType("critical");
+      }
+      
+      // Clear feedback after 4 seconds
+      const timer = setTimeout(() => {
+        setFeedbackMessage(null);
+      }, 4000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [fetcher.state, fetcher.data]);
+
   const handleCountryChange = useCallback((countries) => {
     console.log("Countries selected:", countries);
     
+    // Clear any existing feedback
+    setFeedbackMessage(null);
+    
+    // Determine if countries were added or removed
+    const previousCount = selectedCountries.length;
+    const newCount = countries.length;
+    
     // If on free plan and exceeding limit, enforce the limit
+    let countriesToSave = countries;
     if (planType === "free" && countryLimit && countries.length > countryLimit) {
       // Only take the first 5 countries
-      const limitedCountries = countries.slice(0, countryLimit);
-      setSelectedCountries(limitedCountries);
+      countriesToSave = countries.slice(0, countryLimit);
+      setSelectedCountries(countriesToSave);
     } else {
       setSelectedCountries(countries);
     }
     
-    // Save to metafield
+    // Save to metafield using fetcher for better state management
     const formData = new FormData();
-    formData.append("countries", JSON.stringify(countries));
-    submit(formData, { method: "post" });
-  }, [planType, countryLimit, submit]);
+    formData.append("countries", JSON.stringify(countriesToSave));
+    formData.append("action_type", newCount > previousCount ? "added" : newCount < previousCount ? "removed" : "updated");
+    fetcher.submit(formData, { method: "post" });
+  }, [planType, countryLimit, fetcher, selectedCountries]);
 
   const handleEmbedClick = useCallback(() => {
     try {
@@ -255,8 +296,10 @@ export default function Index() {
 
       // Extract the shop name without .myshopify.com
       const shopName = shop.replace('.myshopify.com', '');
+
+      console.log('shopppppp',shopName)
       
-      // Construct the URL using admin.shopify.com format
+      // Construct the URL using admin.shopify.com format d7c3a32f-9572-4caf-aadd-ab0a618f3c30
       const embedUrl = `https://admin.shopify.com/store/${shopName}/themes/current/editor?context=apps&template=index&activateAppId=d7c3a32f-9572-4caf-aadd-ab0a618f3c30/country_blocker`;
       console.log('Opening URL:', embedUrl);
 
@@ -303,7 +346,7 @@ export default function Index() {
                   Use this dashboard to manage which countries can access your store. Select countries below and then embed the blocker in your theme.
                 </Text>
                 <InlineStack gap="300" align="end">
-                  <Button onClick={handleManagePricingClick} primary>
+                  <Button onClick={handleManagePricingClick} variant="primary">
                     Manage Subscription
                   </Button>
                 </InlineStack>
@@ -311,11 +354,30 @@ export default function Index() {
             </Card>
           </Layout.Section>
           <Layout.Section>
+            <BlockStack gap="400">
             <Card>
               <BlockStack gap="400">
                 <Text as="h2" variant="headingMd">
                   Country Selection
                 </Text>
+                
+                {/* Visual feedback for save operations */}
+                {feedbackMessage && (
+                  <Banner status={feedbackType}>
+                    <Text as="p" variant="bodyMd">
+                      {feedbackMessage}
+                    </Text>
+                  </Banner>
+                )}
+                
+                {/* Loading indicator while saving */}
+                {fetcher.state === "submitting" && (
+                  <Banner status="info">
+                    <Text as="p" variant="bodyMd">
+                      Saving countries...
+                    </Text>
+                  </Banner>
+                )}
                 
                 {!hasPlan && (
                   <Banner status="warning">
@@ -336,23 +398,20 @@ export default function Index() {
                           You have reached your limit of {countryLimit} countries. Upgrade to the premium plan for unlimited country blocking.
                         </Text>
                       )}
-                      <Button 
-                        onClick={handleManagePricingClick} 
-                        plain
-                      >
+                      <Button onClick={handleManagePricingClick} variant="primary">
                         Upgrade to Premium
                       </Button>
                     </BlockStack>
                   </Banner>
                 )}
                 
-                {planType === "premium" && (
+                {/* {planType === "premium" && (
                   <Banner status="success">
                     <Text as="p" variant="bodyMd">
                       You are on the <strong>Premium</strong> plan with unlimited country blocking.
                     </Text>
                   </Banner>
-                )}
+                )} */}
                 
                 <div style={{ opacity: hasPlan ? 1 : 0.5 }}>
                   <CountrySelector
@@ -374,7 +433,7 @@ export default function Index() {
               </BlockStack>
             </Card>
             <Card>
-              <BlockStack gap="300">
+              <BlockStack gap="400">
                 <Text as="h2" variant="headingMd">
                   Theme Integration
                 </Text>
@@ -386,16 +445,12 @@ export default function Index() {
                           ? "You need to select a subscription plan to use this feature."
                           : "Add the country blocker to your theme:"}
                       </Text>
-                      <Button 
-                        onClick={handleEmbedClick} 
-                        primary 
-                        disabled={!hasPlan}
-                      >
+                      <Button onClick={handleEmbedClick} variant="primary" disabled={!hasPlan}>
                         Open Theme Editor
                       </Button>
                       {hasPlan && (
                         <Text as="p" variant="bodySm" color="subdued">
-                          This will open your theme editor where you can add the country blocker block to your store's sections.
+                          This will open your theme editor where you can add the country blocker block to your store's section.
                         </Text>
                       )}
                     </BlockStack>
@@ -403,7 +458,8 @@ export default function Index() {
                 </div>
               </BlockStack>
             </Card>
-            <Card>
+            </BlockStack>
+            {/* <Card>
               <BlockStack gap="300">
                 <Text as="h2" variant="headingMd">
                   Bot Blocker
@@ -411,16 +467,13 @@ export default function Index() {
                 <Text as="p" variant="bodyMd">
                   Advanced multi-layered bot detection system that blocks search engine bots, crawlers, and headless browsers using behavioral analysis, honeypot traps, and user interaction monitoring.
                 </Text>
-                <Button 
-                  url="/app/botblocker"
-                  primary
-                >
+                <Button url="/app/botblocker" variant="primary">
                   Configure Bot Blocker
                 </Button>
               </BlockStack>
-            </Card>
+            </Card> */}
           </Layout.Section>
-          <Layout.Section secondary>
+          {/* <Layout.Section secondary>
             <Card>
               <BlockStack gap="400">
                 <Text as="h2" variant="headingMd">
@@ -440,17 +493,13 @@ export default function Index() {
                   </ul>
                 </BlockStack>
                 {!isPremiumPlan && (
-                  <Button 
-                    onClick={handleManagePricingClick} 
-                    primary
-                    fullWidth
-                  >
+                  <Button onClick={handleManagePricingClick} variant="primary" fullWidth>
                     Upgrade to Premium
                   </Button>
                 )}
               </BlockStack>
             </Card>
-          </Layout.Section>
+          </Layout.Section> */}
         </Layout>
       </BlockStack>
     </Page>

@@ -322,8 +322,10 @@ export default function Shortcuts() {
       const shopName = shopDomain.replace('.myshopify.com', '');
       
       // Construct the URL using admin.shopify.com format
-      const embedUrl = `https://admin.shopify.com/store/${shopName}/themes/current/editor?context=apps&template=index&activateAppId=d7c3a32f-9572-4caf-aadd-ab0a618f3c30/keyboard_shortcuts`;
+
+      const embedUrl = `https://admin.shopify.com/store/${shopName}/themes/current/editor?context=apps&template=index&activateAppId=d7c3a32f-9572-4caf-aadd-ab0a618f3c30/disable_shortcuts`;
       console.log('Opening URL:', embedUrl);
+      console.log('shopNameeeee',shopName)
       
       // Open in a new tab
       window.open(embedUrl, '_blank');
@@ -359,11 +361,13 @@ export default function Shortcuts() {
       primaryAction={{
         content: "Manage Subscription",
         onAction: handleManagePricingClick,
+        variant: "primary",
       }}
     >
       <BlockStack gap="500">
         <Layout>
           <Layout.Section>
+            <BlockStack gap="400">
             <Card>
               <BlockStack gap="400">
                 
@@ -372,11 +376,7 @@ export default function Shortcuts() {
                     <Text as="p" variant="bodyMd">
                       You need to select a subscription plan to use this feature.
                     </Text>
-                    <Button 
-                      onClick={handleManagePricingClick} 
-                      primary
-                      plain
-                    >
+                    <Button onClick={handleManagePricingClick} variant="primary">
                       Manage Subscription
                     </Button>
                   </Banner>
@@ -391,23 +391,20 @@ export default function Shortcuts() {
                       <Text as="p" variant="bodyMd">
                         <strong>Note:</strong> Keyboard shortcuts blocking is a premium feature. Upgrade to the premium plan to access this functionality.
                       </Text>
-                      <Button 
-                        onClick={handleManagePricingClick} 
-                        plain
-                      >
+                      <Button onClick={handleManagePricingClick} variant="primary">
                         Upgrade to Premium
                       </Button>
                     </BlockStack>
                   </Banner>
                 )}
                 
-                {isPremiumPlan && (
+                {/* {isPremiumPlan && (
                   <Banner status="success">
                     <Text as="p" variant="bodyMd">
                       You are on the <strong>Premium</strong> plan with full access to all features.
                     </Text>
                   </Banner>
-                )}
+                )} */}
                 
                 {saveStatus.success && (
                   <Banner status="success">
@@ -436,10 +433,7 @@ export default function Shortcuts() {
                       onAction: handleToggle,
                       loading: isSaving,
                       disabled: !isPremiumPlan,
-                      ...(enabled && {
-                        variant: "primary",
-                        tone: "success"
-                      })
+                      variant: "primary"
                     }}
                     enabled={enabled && isPremiumPlan}
                   >
@@ -503,7 +497,7 @@ export default function Shortcuts() {
               </BlockStack>
             </Card>
             <Card>
-                <BlockStack gap="300">
+                <BlockStack gap="400">
                   <Text as="h2" variant="headingMd">
                     Theme Integration
                   </Text>
@@ -515,11 +509,7 @@ export default function Shortcuts() {
                             ? "Add the keyboard shortcuts blocker to your theme:" 
                             : "This feature is only available on the Premium plan."}
                         </Text>
-                        <Button 
-                          onClick={handleEmbedShortcutClick} 
-                          primary 
-                          disabled={!isPremiumPlan}
-                        >
+                        <Button onClick={handleEmbedShortcutClick} variant="primary" disabled={!isPremiumPlan}>
                           Open Theme Editor
                         </Button>
                         {isPremiumPlan && (
@@ -532,8 +522,9 @@ export default function Shortcuts() {
                   </div>
                 </BlockStack>
             </Card>
+            </BlockStack>
           </Layout.Section>
-          <Layout.Section secondary>
+          {/* <Layout.Section secondary>
             <Card>
               <BlockStack gap="400">
                 <Text as="h2" variant="headingMd">
@@ -555,17 +546,13 @@ export default function Shortcuts() {
                   </ul>
                 </BlockStack>
                 {!isPremiumPlan && (
-                  <Button 
-                    onClick={handleManagePricingClick} 
-                    primary
-                    fullWidth
-                  >
+                  <Button onClick={handleManagePricingClick} variant="primary" fullWidth>
                     Upgrade to Premium
                   </Button>
                 )}
               </BlockStack>
             </Card>
-          </Layout.Section>
+          </Layout.Section> */}
         </Layout>
       </BlockStack>
     </Page>

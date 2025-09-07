@@ -481,15 +481,16 @@ export default function CountrySelector({
           </Text>
         </Banner>
       );
-    } else if (isPremiumPlan) {
-      return (
-        <Banner status="success">
-          <Text as="p" variant="bodyMd">
-            You are on the <strong>Premium Plan</strong> with unlimited country blocking.
-          </Text>
-        </Banner>
-      );
-    }
+    } 
+    // else if (isPremiumPlan) {
+    //   return (
+    //     <Banner status="success">
+    //       <Text as="p" variant="bodyMd">
+    //         You are on the <strong>Premium Plan</strong> with unlimited country blocking.
+    //       </Text>
+    //     </Banner>
+    //   );
+    // }
     return null;
   };
   

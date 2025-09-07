@@ -52,7 +52,7 @@ export default function App() {
           Home
         </Link>
         <Link to="/app/shortcuts">Disable Keyboard Shortcuts</Link>
-        <Link to="/app/botblocker">Bot Blocker</Link>
+        {/* <Link to="/app/botblocker">Bot Blocker</Link> */}
         <Link to="/app/faq">FAQ</Link>
         <Link to="/app/privacy-policy">Privacy Policy</Link>
       </NavMenu>
