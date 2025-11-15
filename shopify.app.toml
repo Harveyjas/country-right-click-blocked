@@ -3,7 +3,7 @@
 client_id = "a1ab97a46b1da2e22ae82de7c621e32a"
 name = "Rabbi Country Blocker"
 handle = "insta-18"
-application_url = "https://recognized-heel-ng-outlet.trycloudflare.com"
+application_url = "https://currency-switcher.onrender.com"
 embedded = true
 
 [build]
@@ -18,10 +18,10 @@ api_version = "2024-01"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "read_products,write_products"
+scopes = "read_products,write_products,read_markets,write_markets"
 
 [auth]
-redirect_urls = ["https://recognized-heel-ng-outlet.trycloudflare.com/auth/callback", "https://recognized-heel-ng-outlet.trycloudflare.com/auth/shopify/callback", "https://recognized-heel-ng-outlet.trycloudflare.com/api/auth/callback"]
+redirect_urls = ["https://currency-switcher.onrender.com", "https://currency-switcher.onrender.com", "https://currency-switcher.onrender.com"]
 
 [pos]
 embedded = false

@@ -51,6 +51,10 @@ export default function App() {
         <Link to="/app" rel="home">
           Home
         </Link>
+        <Link to="/app/country-blocker">
+          Country Blocker
+        </Link>
+        <Link to="/app/redirection-rules">Redirection Rules</Link>
         <Link to="/app/shortcuts">Disable Keyboard Shortcuts</Link>
         {/* <Link to="/app/botblocker">Bot Blocker</Link> */}
         <Link to="/app/faq">FAQ</Link>
