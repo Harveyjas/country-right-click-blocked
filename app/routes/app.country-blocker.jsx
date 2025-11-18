@@ -337,23 +337,6 @@ export default function Index() {
       <BlockStack gap="500">
         <Layout>
           <Layout.Section>
-            <Card>
-              <BlockStack gap="400">
-                <Text as="h2" variant="headingMd">
-                  Welcome to your Country Restrictions Dashboard
-                </Text>
-                <Text as="p" variant="bodyMd">
-                  Use this dashboard to manage which countries can access your store. Select countries below and then embed the blocker in your theme.
-                </Text>
-                <InlineStack gap="300" align="end">
-                  <Button onClick={handleManagePricingClick} variant="primary">
-                    Manage Subscription
-                  </Button>
-                </InlineStack>
-              </BlockStack>
-            </Card>
-          </Layout.Section>
-          <Layout.Section>
             <BlockStack gap="400">
             <Card>
               <BlockStack gap="400">
@@ -433,73 +416,71 @@ export default function Index() {
               </BlockStack>
             </Card>
             <Card>
-              <BlockStack gap="400">
-                <Text as="h2" variant="headingMd">
-                  Theme Integration
-                </Text>
-                <div style={{ opacity: hasPlan ? 1 : 0.5 }}>
-                  <Banner status={!hasPlan ? "warning" : "info"}>
-                    <BlockStack gap="300">
-                      <Text as="p" variant="bodyMd">
-                        {!hasPlan 
-                          ? "You need to select a subscription plan to use this feature."
-                          : "Add the country blocker to your theme:"}
-                      </Text>
-                      <Button onClick={handleEmbedClick} variant="primary" disabled={!hasPlan}>
-                        Open Theme Editor
-                      </Button>
-                      {hasPlan && (
-                        <Text as="p" variant="bodySm" color="subdued">
-                          This will open your theme editor where you can add the country blocker block to your store's section.
-                        </Text>
-                      )}
-                    </BlockStack>
-                  </Banner>
+              <BlockStack gap="500">
+                <div>
+                  <Text as="h2" variant="headingMd">
+                    Theme Integration
+                  </Text>
+                  <Text as="p" variant="bodySm" color="subdued" tone="subdued">
+                    Seamlessly integrate country blocking into your store theme
+                  </Text>
+                </div>
+                
+                <div style={{ 
+                  opacity: hasPlan ? 1 : 0.6,
+                  pointerEvents: hasPlan ? "auto" : "none"
+                }}>
+                  <BlockStack gap="400">
+                    {!hasPlan ? (
+                      <div style={{
+                        backgroundColor: "rgba(252, 232, 178, 0.3)",
+                        borderLeft: "3px solid #f59e0b",
+                        padding: "16px",
+                        borderRadius: "4px"
+                      }}>
+                        <BlockStack gap="200">
+                          <Text as="p" variant="bodyMd" tone="warning">
+                            <strong>Subscription Required</strong>
+                          </Text>
+                          <Text as="p" variant="bodySm" color="subdued">
+                            Select a subscription plan to unlock theme integration features
+                          </Text>
+                        </BlockStack>
+                      </div>
+                    ) : (
+                      <div style={{
+                        backgroundColor: "rgba(226, 232, 240, 0.4)",
+                        padding: "24px",
+                        borderRadius: "8px",
+                        border: "1px solid rgba(203, 213, 225, 0.5)"
+                      }}>
+                        <BlockStack gap="300">
+                          <div>
+                            <Text as="p" variant="bodyMd">
+                              <strong>Add to Your Theme</strong>
+                            </Text>
+                            <Text as="p" variant="bodySm" color="subdued">
+                              Configure the country blocker block directly from your Shopify theme editor
+                            </Text>
+                          </div>
+                          
+                          <Button onClick={handleEmbedClick} variant="primary" size="large" fullWidth>
+                            Open Theme Editor
+                          </Button>
+                          
+                          <Text as="p" variant="bodySm" color="subdued">
+                            💡 Tip: You can add the country blocker block to any theme section and customize its appearance
+                          </Text>
+                        </BlockStack>
+                      </div>
+                    )}
+                  </BlockStack>
                 </div>
               </BlockStack>
             </Card>
             </BlockStack>
-            {/* <Card>
-              <BlockStack gap="300">
-                <Text as="h2" variant="headingMd">
-                  Bot Blocker
-                </Text>
-                <Text as="p" variant="bodyMd">
-                  Advanced multi-layered bot detection system that blocks search engine bots, crawlers, and headless browsers using behavioral analysis, honeypot traps, and user interaction monitoring.
-                </Text>
-                <Button url="/app/botblocker" variant="primary">
-                  Configure Bot Blocker
-                </Button>
-              </BlockStack>
-            </Card> */}
+            
           </Layout.Section>
-          {/* <Layout.Section secondary>
-            <Card>
-              <BlockStack gap="400">
-                <Text as="h2" variant="headingMd">
-                  Premium Features
-                </Text>
-                <Text as="p" variant="bodyMd">
-                  Upgrade to the Premium plan to unlock all features:
-                </Text>
-                <BlockStack gap="200">
-                  <ul>
-                    <li><Text as="span" variant="bodyMd">Unlimited country blocking</Text></li>
-                    <li><Text as="span" variant="bodyMd">Keyboard shortcuts blocking</Text></li>
-                    <li><Text as="span" variant="bodyMd">Right-click context menu blocking</Text></li>
-                    <li><Text as="span" variant="bodyMd">Advanced bot and crawler blocking with behavioral analysis</Text></li>
-                    <li><Text as="span" variant="bodyMd">Developer tools access prevention</Text></li>
-                    <li><Text as="span" variant="bodyMd">Priority support</Text></li>
-                  </ul>
-                </BlockStack>
-                {!isPremiumPlan && (
-                  <Button onClick={handleManagePricingClick} variant="primary" fullWidth>
-                    Upgrade to Premium
-                  </Button>
-                )}
-              </BlockStack>
-            </Card>
-          </Layout.Section> */}
         </Layout>
       </BlockStack>
     </Page>

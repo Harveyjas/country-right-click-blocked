@@ -1227,6 +1227,60 @@ export default function RedirectionRules() {
                   </Box>
                 </BlockStack>
               </Card>
+
+              <Card>
+                <BlockStack gap="500">
+                  <div>
+                    <Text as="h2" variant="headingMd">
+                      Theme Integration
+                    </Text>
+                    <Text as="p" variant="bodySm" color="subdued" tone="subdued">
+                      Seamlessly integrate country blocking into your store theme
+                    </Text>
+                  </div>
+                  
+                  <div style={{ 
+                    opacity: 1,
+                    pointerEvents: "auto"
+                  }}>
+                    <BlockStack gap="400">
+                      <div style={{
+                        backgroundColor: "rgba(226, 232, 240, 0.4)",
+                        padding: "24px",
+                        borderRadius: "8px",
+                        border: "1px solid rgba(203, 213, 225, 0.5)"
+                      }}>
+                        <BlockStack gap="300">
+                          <div>
+                            <Text as="p" variant="bodyMd">
+                              <strong>Add to Your Theme</strong>
+                            </Text>
+                            <Text as="p" variant="bodySm" color="subdued">
+                              Configure the country blocker block directly from your Shopify theme editor
+                            </Text>
+                          </div>
+                          
+                          <Button variant="primary" size="large" fullWidth onClick={() => {
+                            try {
+                              const shopName = window.location.hostname.split('.')[0];
+                              const embedUrl = `https://admin.shopify.com/store/${shopName}/themes/current/editor?context=apps&template=index&activateAppId=d7c3a32f-9572-4caf-aadd-ab0a618f3c30/redirection_popup`;
+                              window.open(embedUrl, '_blank');
+                            } catch (error) {
+                              console.error('Error opening theme editor:', error);
+                            }
+                          }}>
+                            Open Theme Editor
+                          </Button>
+                          
+                          <Text as="p" variant="bodySm" color="subdued">
+                            💡 Tip: You can add the country blocker block to any theme section and customize its appearance
+                          </Text>
+                        </BlockStack>
+                      </div>
+                    </BlockStack>
+                  </div>
+                </BlockStack>
+              </Card>
             </BlockStack>
           </Layout.Section>
         </Layout>
