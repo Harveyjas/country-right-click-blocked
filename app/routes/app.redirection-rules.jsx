@@ -220,40 +220,6 @@ export const loader = async ({ request }) => {
   try {
     const { admin } = await authenticate.admin(request);
 
-    const marketsResponse = await admin.graphql(
-      `#graphql
-      query getMarkets {
-        markets(first: 50) {
-          nodes {
-            id
-            name
-            enabled
-            currencySettings {
-              baseCurrency {
-                currencyCode
-              }
-            }
-            regions(first: 10) {
-              nodes {
-                ... on MarketRegionCountry {
-                  name
-                }
-              }
-            }
-          }
-        }
-      }`
-    );
-
-    const marketsJson = await marketsResponse.json();
-    
-    if (marketsJson.errors) {
-      console.error("GraphQL Error - Markets Query:", marketsJson.errors);
-      return json({ markets: [], redirectionRules: [] });
-    }
-
-    const markets = marketsJson.data?.markets?.nodes || [];
-
     const metafieldResponse = await admin.graphql(
       `#graphql
       query {
@@ -269,7 +235,7 @@ export const loader = async ({ request }) => {
     
     if (metafieldJson.errors) {
       console.error("GraphQL Error - Metafield Query:", metafieldJson.errors);
-      return json({ markets, redirectionRules: [] });
+      return json({ redirectionRules: [] });
     }
 
     let redirectionRules = [];
@@ -298,10 +264,10 @@ export const loader = async ({ request }) => {
       }
     }
 
-    return json({ markets, redirectionRules });
+    return json({ redirectionRules });
   } catch (error) {
     console.error("Loader Error:", error);
-    return json({ markets: [], redirectionRules: [] });
+    return json({ redirectionRules: [] });
   }
 };
 
@@ -838,7 +804,7 @@ function EditRedirectionModal({ isOpen, onClose, onSave, rule, allRules = [] }) 
 }
 
 export default function RedirectionRules() {
-  const { markets, redirectionRules: initialRules } = useLoaderData();
+  const { redirectionRules: initialRules } = useLoaderData();
   const [redirections, setRedirections] = useState([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -917,25 +883,6 @@ export default function RedirectionRules() {
     setEditingRule(null);
   };
 
-  // Process markets data for the table
-  const tableRows = markets.map((market) => {
-    const currency = market.currencySettings?.baseCurrency?.currencyCode || 'N/A';
-    const countries = market.regions?.nodes?.map(region => region.name) || [];
-    
-    const statusBadge = (
-      <Badge tone={market.enabled ? 'success' : 'critical'}>
-        {market.enabled ? 'Enabled' : 'Disabled'}
-      </Badge>
-    );
-
-    return [
-      market.name,
-      currency,
-      <CountriesCell key={market.id} countries={countries} />,
-      statusBadge
-    ];
-  });
-
   const redirectionRows = redirections.map((rule) => [
     <Text key={`name-${rule.id}`} as="p" variant="bodyMd" fontWeight="semibold">
       {rule.name}
@@ -980,7 +927,7 @@ export default function RedirectionRules() {
   ]);
 
   return (
-    <Page title="Shopify Markets" fullWidth>
+    <Page title="Redirection Rules" fullWidth>
       <BlockStack gap="800">
         {bannerMessage && (
           <Banner title="Success" onDismiss={() => setBannerMessage('')} tone="success">
@@ -998,49 +945,13 @@ export default function RedirectionRules() {
               <Box paddingBlockEnd="400">
                 <BlockStack gap="200">
                   <Text as="h1" variant="headingLg">
-                    Market Configuration
+                    Redirection Rules
                   </Text>
                   <Text as="p" variant="bodyMd" tone="subdued">
-                    Manage your Shopify markets, currencies, and create country-specific redirection rules for seamless global operations.
+                    Create country-specific redirect URLs for seamless global operations.
                   </Text>
                 </BlockStack>
               </Box>
-
-              <Card>
-                <BlockStack gap="400">
-                  <Box paddingBlock="400" paddingInline="400">
-                    <BlockStack gap="200">
-                      <Text as="h2" variant="headingMd">
-                        📍 Markets Overview
-                      </Text>
-                      <Text as="p" variant="bodySm" tone="subdued">
-                        View all configured markets across your store
-                      </Text>
-                    </BlockStack>
-                  </Box>
-                  <Divider />
-                  <Box paddingBlock="400" paddingInline="400">
-                    {markets.length === 0 ? (
-                      <EmptyState
-                        heading="No markets configured"
-                        image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
-                      >
-                        <Text as="p" variant="bodyMd" tone="subdued">
-                          Your store doesn't have any markets configured yet. Create markets in your Shopify admin to get started.
-                        </Text>
-                      </EmptyState>
-                    ) : (
-                      <div style={{ overflowX: 'auto' }}>
-                        <DataTable
-                          columnContentTypes={['text', 'text', 'text', 'text']}
-                          headings={['Market Name', 'Currency', 'Countries', 'Status']}
-                          rows={tableRows}
-                        />
-                      </div>
-                    )}
-                  </Box>
-                </BlockStack>
-              </Card>
 
               <Card>
                 <BlockStack gap="400">
