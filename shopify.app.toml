@@ -18,7 +18,7 @@ api_version = "2024-01"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "read_products,write_products,read_markets,write_markets"
+scopes = "read_products,write_products,read_markets,write_markets,read_shipping,write_shipping,read_locales"
 
 [auth]
 redirect_urls = ["https://currency-switcher.onrender.com", "https://currency-switcher.onrender.com", "https://currency-switcher.onrender.com"]

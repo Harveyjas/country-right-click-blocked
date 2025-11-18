@@ -25,6 +25,16 @@ import { json } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { countryData } from "../utils/countryData";
 
+function getCountryNameMap() {
+  const codeToName = {};
+  Object.values(countryData).forEach(continent => {
+    continent.forEach(country => {
+      codeToName[country.code] = country.name;
+    });
+  });
+  return codeToName;
+}
+
 function CountrySelector({ selectedCountries, onSelectMultiple, onRemoveMultiple, disabledCountries = [] }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedContinents, setExpandedContinents] = useState({
@@ -219,6 +229,7 @@ function CountrySelector({ selectedCountries, onSelectMultiple, onRemoveMultiple
 export const loader = async ({ request }) => {
   try {
     const { admin } = await authenticate.admin(request);
+    const countryCodeToName = getCountryNameMap();
 
     const metafieldResponse = await admin.graphql(
       `#graphql
@@ -235,7 +246,7 @@ export const loader = async ({ request }) => {
     
     if (metafieldJson.errors) {
       console.error("GraphQL Error - Metafield Query:", metafieldJson.errors);
-      return json({ redirectionRules: [] });
+      return json({ redirectionRules: [], markets: [] });
     }
 
     let redirectionRules = [];
@@ -257,17 +268,168 @@ export const loader = async ({ request }) => {
           id: `rule-${index}-${Date.now()}`,
           name: `Redirect Rule ${index + 1}`,
           url: url,
-          countries: countryCodes.map(code => ({ name: code, code: code })),
+          countries: countryCodes.map(code => ({ 
+            name: countryCodeToName[code] || code, 
+            code: code 
+          })),
         }));
       } catch (error) {
         console.error("Error parsing redirection rules:", error);
       }
     }
 
-    return json({ redirectionRules });
+    let marketsMap = {};
+    try {
+      const marketsResponse = await admin.graphql(
+        `#graphql
+        query {
+          markets(first: 100) {
+            edges {
+              node {
+                id
+                name
+                enabled
+              }
+            }
+          }
+        }`
+      );
+
+      const marketsJson = await marketsResponse.json();
+      console.log("Markets Query Response:", JSON.stringify(marketsJson, null, 2));
+      
+      if (marketsJson.errors) {
+        console.error("Markets Query GraphQL Errors:", marketsJson.errors);
+      }
+      
+      const marketsData = marketsJson.data?.markets?.edges?.map(edge => edge.node) || [];
+      console.log("Markets Data Found:", marketsData.length);
+      
+      if (marketsData.length > 0) {
+        for (const market of marketsData) {
+          const countriesResponse = await admin.graphql(
+            `#graphql
+            query getMarketCountries($id: ID!) {
+              market(id: $id) {
+                id
+                name
+                enabled
+                regions(first: 100) {
+                  edges {
+                    node {
+                      id
+                      name
+                    }
+                  }
+                }
+              }
+            }`,
+            {
+              variables: { id: market.id }
+            }
+          );
+
+          const countriesJson = await countriesResponse.json();
+          console.log(`Countries for market ${market.name}:`, JSON.stringify(countriesJson, null, 2));
+          
+          if (!marketsMap[market.id]) {
+            marketsMap[market.id] = {
+              marketId: market.id,
+              marketName: market.name,
+              countries: [],
+              status: market.enabled ? 'Active' : 'Inactive',
+            };
+          }
+          
+          if (countriesJson.data?.market?.regions?.edges) {
+            const regions = countriesJson.data.market.regions.edges;
+            regions.forEach(regionEdge => {
+              marketsMap[market.id].countries.push({
+                name: regionEdge.node.name,
+                code: regionEdge.node.id?.split('/').pop() || 'N/A',
+              });
+            });
+          }
+        }
+      }
+      
+      if (Object.keys(marketsMap).length === 0 && marketsData.length > 0) {
+        marketsData.forEach(market => {
+          marketsMap[market.id] = {
+            marketId: market.id,
+            marketName: market.name,
+            countries: [{ name: 'Multiple Countries', code: 'MULTI' }],
+            status: market.enabled ? 'Active' : 'Inactive',
+          };
+        });
+      }
+      
+      if (Object.keys(marketsMap).length === 0) {
+        console.log("No markets found, attempting to fetch shipping zones as alternative...");
+        const shippingResponse = await admin.graphql(
+          `#graphql
+          query {
+            shop {
+              id
+              name
+            }
+            shippingZones(first: 100) {
+              edges {
+                node {
+                  id
+                  name
+                  countries(first: 100) {
+                    edges {
+                      node {
+                        code
+                        name
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }`
+        );
+        
+        const shippingJson = await shippingResponse.json();
+        console.log("Shipping Zones Response:", JSON.stringify(shippingJson, null, 2));
+        
+        if (shippingJson.data?.shippingZones?.edges) {
+          const zones = shippingJson.data.shippingZones.edges;
+          zones.forEach((zoneEdge, idx) => {
+            const zone = zoneEdge.node;
+            if (!marketsMap[zone.id]) {
+              marketsMap[zone.id] = {
+                marketId: zone.id,
+                marketName: zone.name || `Zone ${idx + 1}`,
+                countries: [],
+                status: 'Active',
+              };
+            }
+            
+            if (zone.countries?.edges) {
+              zone.countries.edges.forEach(countryEdge => {
+                marketsMap[zone.id].countries.push({
+                  name: countryEdge.node.name,
+                  code: countryEdge.node.code,
+                });
+              });
+            }
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching markets:", error);
+      marketsMap = {};
+    }
+    
+    const markets = Object.values(marketsMap);
+
+    return json({ redirectionRules, markets });
   } catch (error) {
     console.error("Loader Error:", error);
-    return json({ redirectionRules: [] });
+    return json({ redirectionRules: [], markets: [] });
   }
 };
 
@@ -804,8 +966,9 @@ function EditRedirectionModal({ isOpen, onClose, onSave, rule, allRules = [] }) 
 }
 
 export default function RedirectionRules() {
-  const { redirectionRules: initialRules } = useLoaderData();
+  const { redirectionRules: initialRules, markets: initialMarkets } = useLoaderData();
   const [redirections, setRedirections] = useState([]);
+  const [markets, setMarkets] = useState([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -817,6 +980,9 @@ export default function RedirectionRules() {
   useEffect(() => {
     if (initialRules && initialRules.length > 0) {
       setRedirections(initialRules);
+    }
+    if (initialMarkets && initialMarkets.length > 0) {
+      setMarkets(initialMarkets);
     }
   }, []);
 
@@ -926,6 +1092,25 @@ export default function RedirectionRules() {
     </InlineStack>,
   ]);
 
+  const marketsRows = markets.map((market, idx) => [
+    <Text key={`market-name-${market.marketId}-${idx}`} as="p" variant="bodyMd" fontWeight="semibold">
+      {market.marketName}
+    </Text>,
+    <InlineStack key={`countries-${market.marketId}-${idx}`} gap="100" wrap>
+      {(market.countries || []).map((country) => (
+        <Badge key={`${market.marketId}-${country.code}`} tone="info">
+          {country.name}
+        </Badge>
+      ))}
+    </InlineStack>,
+    <Badge 
+      key={`status-${market.marketId}-${idx}`}
+      tone={market.status === 'Active' ? 'success' : 'warning'}
+    >
+      {market.status}
+    </Badge>,
+  ]);
+
   return (
     <Page title="Redirection Rules" fullWidth>
       <BlockStack gap="800">
@@ -996,6 +1181,46 @@ export default function RedirectionRules() {
                           columnContentTypes={['text', 'text', 'text', 'text']}
                           headings={['Rule Name', 'Redirection URL', 'Countries', 'Actions']}
                           rows={redirectionRows}
+                        />
+                      </div>
+                    )}
+                  </Box>
+                </BlockStack>
+              </Card>
+
+              <Card>
+                <BlockStack gap="400">
+                  <Box 
+                    paddingBlock="400" 
+                    paddingInline="400"
+                    borderBottomWidth="1"
+                    borderColor="border"
+                  >
+                    <BlockStack gap="200">
+                      <Text as="h2" variant="headingMd">
+                        🌍 Market Data
+                      </Text>
+                      <Text as="p" variant="bodySm" tone="subdued">
+                        View all active markets and their associated countries
+                      </Text>
+                    </BlockStack>
+                  </Box>
+                  <Box paddingBlock="400" paddingInline="400">
+                    {markets.length === 0 ? (
+                      <EmptyState
+                        heading="No market data available"
+                        image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-tasks.png"
+                      >
+                        <Text as="p" variant="bodyMd" tone="subdued">
+                          No markets have been set up for this store yet.
+                        </Text>
+                      </EmptyState>
+                    ) : (
+                      <div style={{ overflowX: 'auto' }}>
+                        <DataTable
+                          columnContentTypes={['text', 'text', 'text']}
+                          headings={['Market Name', 'Country', 'Status']}
+                          rows={marketsRows}
                         />
                       </div>
                     )}
