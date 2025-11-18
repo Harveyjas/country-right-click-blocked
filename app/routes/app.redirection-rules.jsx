@@ -217,75 +217,92 @@ function CountrySelector({ selectedCountries, onSelectMultiple, onRemoveMultiple
 }
 
 export const loader = async ({ request }) => {
-  const { admin } = await authenticate.admin(request);
+  try {
+    const { admin } = await authenticate.admin(request);
 
-  const marketsResponse = await admin.graphql(
-    `#graphql
-    query getMarkets {
-      markets(first: 50) {
-        nodes {
-          id
-          name
-          enabled
-          currencySettings {
-            baseCurrency {
-              currencyCode
+    const marketsResponse = await admin.graphql(
+      `#graphql
+      query getMarkets {
+        markets(first: 50) {
+          nodes {
+            id
+            name
+            enabled
+            currencySettings {
+              baseCurrency {
+                currencyCode
+              }
             }
-          }
-          regions(first: 10) {
-            nodes {
-              ... on MarketRegionCountry {
-                name
+            regions(first: 10) {
+              nodes {
+                ... on MarketRegionCountry {
+                  name
+                }
               }
             }
           }
         }
-      }
-    }`
-  );
+      }`
+    );
 
-  const marketsJson = await marketsResponse.json();
-  const markets = marketsJson.data?.markets?.nodes || [];
-
-  const metafieldResponse = await admin.graphql(
-    `#graphql
-    query {
-      shop {
-        metafield(namespace: "countryblocker", key: "redirection-rules") {
-          value
-        }
-      }
-    }`
-  );
-
-  const metafieldJson = await metafieldResponse.json();
-  let redirectionRules = [];
-
-  const metafield = metafieldJson.data?.shop?.metafield;
-  if (metafield) {
-    try {
-      const parsedRules = JSON.parse(metafield.value);
-      
-      const rulesByUrl = {};
-      Object.entries(parsedRules).forEach(([code, url]) => {
-        if (!rulesByUrl[url]) {
-          rulesByUrl[url] = [];
-        }
-        rulesByUrl[url].push(code);
-      });
-
-      redirectionRules = Object.entries(rulesByUrl).map(([url, countryCodes], index) => ({
-        id: `rule-${index}-${Date.now()}`,
-        name: `Redirect Rule ${index + 1}`,
-        url: url,
-        countries: countryCodes.map(code => ({ name: code, code: code })),
-      }));
-    } catch (error) {
-      console.error("Error parsing redirection rules:", error);
+    const marketsJson = await marketsResponse.json();
+    
+    if (marketsJson.errors) {
+      console.error("GraphQL Error - Markets Query:", marketsJson.errors);
+      return json({ markets: [], redirectionRules: [] });
     }
-  }
 
-  return json({ markets, redirectionRules });
+    const markets = marketsJson.data?.markets?.nodes || [];
+
+    const metafieldResponse = await admin.graphql(
+      `#graphql
+      query {
+        shop {
+          metafield(namespace: "countryblocker", key: "redirection-rules") {
+            value
+          }
+        }
+      }`
+    );
+
+    const metafieldJson = await metafieldResponse.json();
+    
+    if (metafieldJson.errors) {
+      console.error("GraphQL Error - Metafield Query:", metafieldJson.errors);
+      return json({ markets, redirectionRules: [] });
+    }
+
+    let redirectionRules = [];
+
+    const metafield = metafieldJson.data?.shop?.metafield;
+    if (metafield) {
+      try {
+        const parsedRules = JSON.parse(metafield.value);
+        
+        const rulesByUrl = {};
+        Object.entries(parsedRules).forEach(([code, url]) => {
+          if (!rulesByUrl[url]) {
+            rulesByUrl[url] = [];
+          }
+          rulesByUrl[url].push(code);
+        });
+
+        redirectionRules = Object.entries(rulesByUrl).map(([url, countryCodes], index) => ({
+          id: `rule-${index}-${Date.now()}`,
+          name: `Redirect Rule ${index + 1}`,
+          url: url,
+          countries: countryCodes.map(code => ({ name: code, code: code })),
+        }));
+      } catch (error) {
+        console.error("Error parsing redirection rules:", error);
+      }
+    }
+
+    return json({ markets, redirectionRules });
+  } catch (error) {
+    console.error("Loader Error:", error);
+    return json({ markets: [], redirectionRules: [] });
+  }
 };
 
 function CountriesCell({ countries }) {
