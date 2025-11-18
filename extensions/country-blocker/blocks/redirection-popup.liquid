@@ -1,0 +1,403 @@
+<link rel="stylesheet" href="{{ 'redirection-popup.css' | asset_url }}">
+<script src="{{ 'country_data_json.js' | asset_url }}"></script>
+<script src="{{ 'redirection-popup.js' | asset_url }}" defer></script>
+<script>
+  const territoryFlagMap = {
+    'AC': 'GB',
+    'AX': 'FI',
+    'BQ': 'NL',
+    'CW': 'NL',
+    'FK': 'GB',
+    'FO': 'DK',
+    'GF': 'FR',
+    'GG': 'GB',
+    'GI': 'GB',
+    'GL': 'DK',
+    'GP': 'FR',
+    'GS': 'GB',
+    'IM': 'GB',
+    'JE': 'GB',
+    'MF': 'FR',
+    'MQ': 'FR',
+    'MS': 'GB',
+    'PM': 'FR',
+    'RE': 'FR',
+    'SJ': 'NO',
+    'SX': 'NL',
+    'TK': 'NZ',
+    'WF': 'FR'
+  };
+  
+  function getValidFlagCode(countryCode) {
+    return territoryFlagMap[countryCode] || countryCode;
+  }
+  
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('img[src*="hampusborgos"]').forEach(img => {
+      const src = img.src;
+      const codeMatch = src.match(/png100px\/(.+?)\.png/);
+      if (codeMatch) {
+        const originalCode = codeMatch[1].toUpperCase();
+        const validCode = getValidFlagCode(originalCode);
+        if (validCode !== originalCode) {
+          img.src = src.replace(originalCode.toLowerCase(), validCode.toLowerCase());
+          img.onerror = function() {
+            this.src = 'https://flagcdn.com/' + validCode.toLowerCase() + '.svg';
+          };
+        }
+      }
+    });
+  });
+</script>
+
+<!-- Redirection Popup Modal -->
+<div id="redirection-popup-overlay" class="redirection-popup-overlay" style="display: none;" data-show-on-load="{{ block.settings.show_on_load }}" data-enable-geolocation="{{ block.settings.enable_geolocation }}">
+  <div id="redirection-popup-modal" class="redirection-popup-modal">
+    <div class="redirection-popup-header">
+      <h2 id="popup-title">{{ block.settings.popup_title }}</h2>
+      <button type="button" class="redirection-popup-close" id="popup-close-btn" aria-label="Close popup">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M1 1L19 19M19 1L1 19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="redirection-popup-content" data-popup-type="{{ block.settings.popup_type }}">
+      {% if block.settings.popup_type != 'location_confirmation' and block.settings.popup_type != 'simple_selector' %}
+        <p id="popup-description">{{ block.settings.popup_description }}</p>
+      {% endif %}
+
+      <localization-form>
+        {% form 'localization' %}
+          <input type="hidden" name="country_code" value="{{ localization.country.iso_code }}" />
+          
+          {% if block.settings.popup_type == 'location_confirmation' %}
+            <div class="location-confirmation-wrapper">
+              <div class="location-flag-container">
+                <img src="https://raw.githubusercontent.com/hampusborgos/country-flags/main/png100px/{{ localization.country.iso_code | downcase }}.png" alt="{{ localization.country.name }}" class="location-flag-large" loading="lazy" onerror="this.src='https://flagcdn.com/{{ localization.country.iso_code | downcase }}.svg'">
+              </div>
+              <h3 class="location-text">Your location is set to <strong id="location-country-name">{{ localization.country.name }}</strong></h3>
+              <div class="location-benefits">
+                {{ block.settings.location_benefits }}
+              </div>
+              <button type="button" id="confirm-location-btn" class="redirection-popup-btn-primary">{{ block.settings.confirm_location_text }}</button>
+              <button type="button" id="change-location-btn" class="change-location-link">{{ block.settings.change_location_text }}</button>
+            </div>
+
+            <div class="location-country-selector-wrapper" style="display: none;">
+              <label>{{ block.settings.country_label }}</label>
+              <div class="disclosure">
+                <button type="button" class="disclosure__button location-country-btn" id="location-country-button" aria-expanded="false" aria-controls="LocationCountryList">
+                  <span class="country-button-content">
+                    <img id="location-selected-country-flag" src="https://raw.githubusercontent.com/hampusborgos/country-flags/main/png100px/{{ localization.country.iso_code | downcase }}.png" alt="" class="country-flag" loading="lazy" onerror="this.src='https://flagcdn.com/{{ localization.country.iso_code | downcase }}.svg'">
+                    <span id="location-selected-country" class="country-name">{{ localization.country.name }} ({{ localization.country.currency.iso_code }} {{ localization.country.currency.symbol }})</span>
+                  </span>
+                  <svg aria-hidden="true" focusable="false" role="presentation" class="icon icon-caret" viewBox="0 0 10 6">
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M9.354.646a.5.5 0 00-.708 0L5 4.293 1.354.646a.5.5 0 00-.708.708l4 4a.5.5 0 00.708 0l4-4a.5.5 0 000-.708z" fill="currentColor"/>
+                  </svg>
+                </button>
+                <input type="text" id="location-country-search" class="country-search-input" placeholder="Search countries..." hidden>
+                <ul id="LocationCountryList" role="list" class="disclosure__list" hidden>
+                  {% assign shown_countries = '' | split: '' %}
+                  {% assign sorted_countries = localization.available_countries | sort: "name" %}
+                  {% for country in sorted_countries %}
+                    {% unless shown_countries contains country.iso_code %}
+                      <li class="disclosure__item" tabindex="-1">
+                        <a href="#" {% if country.iso_code == localization.country.iso_code %}aria-current="true"{% endif %} data-value="{{ country.iso_code }}" data-country="{{ country.iso_code }}" data-type="shopify" class="location-country-option">
+                          <img src="https://raw.githubusercontent.com/hampusborgos/country-flags/main/png100px/{{ country.iso_code | downcase }}.png" alt="" class="country-flag-small" loading="lazy" onerror="this.src='https://flagcdn.com/{{ country.iso_code | downcase }}.svg'">
+                          <span class="country-info">
+                            <span class="country-option-name">{{ country.name }}</span>
+                            <span class="country-currency">({{ country.currency.iso_code }} {{ country.currency.symbol }})</span>
+                          </span>
+                        </a>
+                      </li>
+                      {% assign shown_countries = shown_countries | push: country.iso_code %}
+                    {% endunless %}
+                  {% endfor %}
+                </ul>
+              </div>
+              <button type="button" id="back-to-confirmation-btn" class="redirection-popup-btn-secondary">Back</button>
+            </div>
+          {% elsif block.settings.popup_type == 'simple_selector' %}
+            <div class="simple-selector-wrapper">
+              <h3>{{ block.settings.selector_question }}</h3>
+              <p>{{ block.settings.selector_description }}</p>
+              <div class="simple-country-selector">
+                <label>{{ block.settings.country_label }}</label>
+                <div class="disclosure">
+                  <button type="button" class="disclosure__button simple-country-btn" id="country-button" aria-expanded="false" aria-controls="CountryList">
+                    <span class="country-button-content">
+                      <img id="selected-country-flag" src="https://raw.githubusercontent.com/hampusborgos/country-flags/main/png100px/{{ localization.country.iso_code | downcase }}.png" alt="" class="country-flag" loading="lazy" onerror="this.src='https://flagcdn.com/{{ localization.country.iso_code | downcase }}.svg'">
+                      <span id="selected-country" class="country-name">{{ localization.country.name }} ({{ localization.country.currency.iso_code }} {{ localization.country.currency.symbol }})</span>
+                    </span>
+                    <svg aria-hidden="true" focusable="false" role="presentation" class="icon icon-caret" viewBox="0 0 10 6">
+                      <path fill-rule="evenodd" clip-rule="evenodd" d="M9.354.646a.5.5 0 00-.708 0L5 4.293 1.354.646a.5.5 0 00-.708.708l4 4a.5.5 0 00.708 0l4-4a.5.5 0 000-.708z" fill="currentColor"/>
+                    </svg>
+                  </button>
+                  <input type="text" id="country-search" class="country-search-input" placeholder="Search countries..." hidden>
+                  <ul id="CountryList" role="list" class="disclosure__list" hidden>
+                    {% assign shown_countries = '' | split: '' %}
+                    {% assign sorted_countries = localization.available_countries | sort: "name" %}
+                    {% for country in sorted_countries %}
+                      {% unless shown_countries contains country.iso_code %}
+                        <li class="disclosure__item" tabindex="-1">
+                          <a href="#" {% if country.iso_code == localization.country.iso_code %}aria-current="true"{% endif %} data-value="{{ country.iso_code }}" data-country="{{ country.iso_code }}" data-type="shopify" class="country-option">
+                            <img src="https://raw.githubusercontent.com/hampusborgos/country-flags/main/png100px/{{ country.iso_code | downcase }}.png" alt="" class="country-flag-small" loading="lazy" onerror="this.src='https://flagcdn.com/{{ country.iso_code | downcase }}.svg'">
+                            <span class="country-info">
+                              <span class="country-option-name">{{ country.name }}</span>
+                              <span class="country-currency">({{ country.currency.iso_code }} {{ country.currency.symbol }})</span>
+                            </span>
+                          </a>
+                        </li>
+                        {% assign shown_countries = shown_countries | push: country.iso_code %}
+                      {% endunless %}
+                    {% endfor %}
+                  </ul>
+                </div>
+              </div>
+              <button type="button" id="shop-now-btn" class="redirection-popup-btn-primary">{{ block.settings.shop_now_text }}</button>
+            </div>
+          {% elsif block.settings.popup_type == 'dropdown' %}
+            <div class="country-selector-wrapper">
+              <label>{{ block.settings.country_label }}</label>
+              <div class="disclosure">
+                <button type="button" class="disclosure__button" id="country-button" aria-expanded="false" aria-controls="CountryList">
+                  <span class="country-button-content">
+                    <img id="selected-country-flag" src="https://flagcdn.com/{{ localization.country.iso_code | downcase }}.svg" alt="" class="country-flag" loading="lazy">
+                    <span id="selected-country" class="country-name">{{ localization.country.name }} ({{ localization.country.currency.iso_code }} {{ localization.country.currency.symbol }})</span>
+                  </span>
+                  <svg aria-hidden="true" focusable="false" role="presentation" class="icon icon-caret" viewBox="0 0 10 6">
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M9.354.646a.5.5 0 00-.708 0L5 4.293 1.354.646a.5.5 0 00-.708.708l4 4a.5.5 0 00.708 0l4-4a.5.5 0 000-.708z" fill="currentColor"/>
+                  </svg>
+                </button>
+                <input type="text" id="country-search-dropdown" class="country-search-input" placeholder="Search countries..." hidden>
+                <ul id="CountryList" role="list" class="disclosure__list" hidden>
+                  {% assign shown_countries = '' | split: '' %}
+                  {% assign sorted_countries = localization.available_countries | sort: "name" %}
+                  {% for country in sorted_countries %}
+                    {% unless shown_countries contains country.iso_code %}
+                      <li class="disclosure__item" tabindex="-1">
+                        <a href="#" {% if country.iso_code == localization.country.iso_code %}aria-current="true"{% endif %} data-value="{{ country.iso_code }}" data-country="{{ country.iso_code }}" data-type="shopify" class="country-option">
+                          <img src="https://raw.githubusercontent.com/hampusborgos/country-flags/main/png100px/{{ country.iso_code | downcase }}.png" alt="" class="country-flag-small" loading="lazy" onerror="this.src='https://flagcdn.com/{{ country.iso_code | downcase }}.svg'">
+                          <span class="country-info">
+                            <span class="country-option-name">{{ country.name }}</span>
+                            <span class="country-currency">({{ country.currency.iso_code }} {{ country.currency.symbol }})</span>
+                          </span>
+                        </a>
+                      </li>
+                      {% assign shown_countries = shown_countries | push: country.iso_code %}
+                    {% endunless %}
+                  {% endfor %}
+                </ul>
+              </div>
+            </div>
+          {% elsif block.settings.popup_type == 'button_grid' %}
+            <div class="country-selector-wrapper">
+              <label>{{ block.settings.country_label }}</label>
+              <input type="text" id="country-search-grid" class="country-search-input" placeholder="Search countries...">
+              <div class="country-button-grid" id="CountryList">
+                {% assign shown_countries = '' | split: '' %}
+                {% assign sorted_countries = localization.available_countries | sort: "name" %}
+                {% for country in sorted_countries %}
+                  {% unless shown_countries contains country.iso_code %}
+                    <button type="button" class="country-grid-btn {% if country.iso_code == localization.country.iso_code %}active{% endif %}" data-value="{{ country.iso_code }}" data-country="{{ country.iso_code }}" data-type="shopify">
+                      <img src="https://raw.githubusercontent.com/hampusborgos/country-flags/main/png100px/{{ country.iso_code | downcase }}.png" alt="" class="country-flag-small" loading="lazy" onerror="this.src='https://flagcdn.com/{{ country.iso_code | downcase }}.svg'">
+                      <span>{{ country.name }}</span>
+                    </button>
+                    {% assign shown_countries = shown_countries | push: country.iso_code %}
+                  {% endunless %}
+                {% endfor %}
+              </div>
+            </div>
+          {% endif %}
+          
+          <script id="metafield-redirect-rules" type="application/json">
+            {% if shop.metafields.countryblocker.redirection-rules %}
+              {{ shop.metafields.countryblocker.redirection-rules }}
+            {% else %}
+              {}
+            {% endif %}
+          </script>
+        {% endform %}
+      </localization-form>
+
+      {% if block.settings.popup_type != 'location_confirmation' and block.settings.popup_type != 'simple_selector' %}
+        <button type="button" id="redirect-btn" class="redirection-popup-btn-primary" disabled>{{ block.settings.redirect_button_text }}</button>
+        <button type="button" id="continue-btn" class="redirection-popup-btn-secondary">{{ block.settings.continue_button_text }}</button>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Store block settings for JS access -->
+<script type="application/json" id="redirection-popup-settings">
+  {
+    "popup_bg_color": "{{ block.settings.popup_bg_color }}",
+    "overlay_bg_color": "{{ block.settings.overlay_bg_color }}",
+    "overlay_opacity": {{ block.settings.overlay_opacity }},
+    "button_bg_color": "{{ block.settings.button_bg_color }}",
+    "button_text_color": "{{ block.settings.button_text_color }}"
+  }
+</script>
+
+{% schema %}
+{
+  "name": "Redirection Popup",
+  "target": "body",
+  "settings": [
+    {
+      "type": "text",
+      "id": "popup_title",
+      "label": "Popup Title",
+      "default": "Select Your Market"
+    },
+    {
+      "type": "richtext",
+      "id": "popup_description",
+      "label": "Popup Description",
+      "default": "<p>Please select your country or market to continue shopping with the appropriate pricing and availability for your region.</p>"
+    },
+    {
+      "type": "text",
+      "id": "country_label",
+      "label": "Country Selector Label",
+      "default": "Select Your Country/Market:"
+    },
+    {
+      "type": "text",
+      "id": "select_placeholder",
+      "label": "Select Placeholder Text",
+      "default": "Select Country"
+    },
+    {
+      "type": "text",
+      "id": "redirect_button_text",
+      "label": "Redirect Button Text",
+      "default": "Go to Market"
+    },
+    {
+      "type": "text",
+      "id": "continue_button_text",
+      "label": "Continue Button Text",
+      "default": "Continue"
+    },
+    {
+      "type": "header",
+      "content": "Colors"
+    },
+    {
+      "type": "color",
+      "id": "popup_bg_color",
+      "label": "Popup Background Color",
+      "default": "#ffffff"
+    },
+    {
+      "type": "color",
+      "id": "overlay_bg_color",
+      "label": "Overlay Background Color",
+      "default": "#000000"
+    },
+    {
+      "type": "range",
+      "id": "overlay_opacity",
+      "label": "Overlay Opacity (%)",
+      "default": 50,
+      "min": 0,
+      "max": 100,
+      "step": 5
+    },
+    {
+      "type": "color",
+      "id": "button_bg_color",
+      "label": "Button Background Color",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "button_text_color",
+      "label": "Button Text Color",
+      "default": "#ffffff"
+    },
+    {
+      "type": "header",
+      "content": "Popup Type"
+    },
+    {
+      "type": "select",
+      "id": "popup_type",
+      "label": "Popup Layout Type",
+      "default": "dropdown",
+      "options": [
+        {
+          "value": "location_confirmation",
+          "label": "Location Confirmation"
+        },
+        {
+          "value": "simple_selector",
+          "label": "Simple Selector"
+        },
+        {
+          "value": "dropdown",
+          "label": "Dropdown Selector"
+        },
+        {
+          "value": "button_grid",
+          "label": "Button Grid"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "confirm_location_text",
+      "label": "Confirm Location Button Text",
+      "default": "Continue"
+    },
+    {
+      "type": "text",
+      "id": "change_location_text",
+      "label": "Change Location Link Text",
+      "default": "Change country/region"
+    },
+    {
+      "type": "richtext",
+      "id": "location_benefits",
+      "label": "Location Benefits (one per line)",
+      "default": "<ul><li>Shop in your local currency</li><li>Get shipping options for your country</li></ul>"
+    },
+    {
+      "type": "text",
+      "id": "selector_question",
+      "label": "Selector Question",
+      "default": "Are you in the right place?"
+    },
+    {
+      "type": "text",
+      "id": "selector_description",
+      "label": "Selector Description",
+      "default": "Please select your shipping country. Remember that we can only ship your order to addresses located in the chosen country."
+    },
+    {
+      "type": "text",
+      "id": "shop_now_text",
+      "label": "Shop Now Button Text",
+      "default": "Shop now"
+    },
+    {
+      "type": "header",
+      "content": "Behavior"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_on_load",
+      "label": "Show popup on page load",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_geolocation",
+      "label": "Auto-detect user's country",
+      "default": true
+    }
+  ]
+}
+{% endschema %}
