@@ -325,13 +325,19 @@
       }
 
       const redirectRules = this.getRedirectRules();
+      let finalCountryCode = countryCode;
+
+      if (countryCode === 'HK' && redirectRules['CN']) {
+        finalCountryCode = 'CN';
+      }
+
       const form = this.localizationForm?.querySelector('form');
       const countryCodeInput = this.localizationForm?.querySelector('input[name="country_code"]');
 
-      if (redirectRules[countryCode]) {
-        window.location.href = redirectRules[countryCode];
+      if (redirectRules[finalCountryCode]) {
+        window.location.href = redirectRules[finalCountryCode];
       } else if (form && countryCodeInput) {
-        countryCodeInput.value = countryCode;
+        countryCodeInput.value = finalCountryCode;
         form.submit();
       } else {
         console.warn('Unable to perform auto-redirect');
@@ -364,12 +370,18 @@
       const contentDiv = document.querySelector('.redirection-popup-content');
       const popupType = contentDiv?.getAttribute('data-popup-type');
       
+      let finalCountryCode = countryCode;
+      const redirectRules = this.getRedirectRules();
+      if (countryCode === 'HK' && redirectRules['CN']) {
+        finalCountryCode = 'CN';
+      }
+      
       if (popupType === 'location_confirmation') {
-        this.autoSelectLocationCountry(countryCode);
+        this.autoSelectLocationCountry(finalCountryCode);
       } else if (popupType === 'simple_selector') {
-        this.autoSelectSimpleCountry(countryCode);
+        this.autoSelectSimpleCountry(finalCountryCode);
       } else {
-        this.autoSelectDefaultCountry(countryCode);
+        this.autoSelectDefaultCountry(finalCountryCode);
       }
     }
 
