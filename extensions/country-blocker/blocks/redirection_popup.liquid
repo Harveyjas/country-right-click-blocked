@@ -51,7 +51,7 @@
 </script>
 
 <!-- Redirection Popup Modal -->
-<div id="redirection-popup-overlay" class="redirection-popup-overlay" style="display: none;" data-show-on-load="{{ block.settings.show_on_load }}" data-enable-geolocation="{{ block.settings.enable_geolocation }}">
+<div id="redirection-popup-overlay" class="redirection-popup-overlay" style="display: none;" data-show-on-load="true" data-enable-geolocation="true" data-enable-auto-redirect="{{ block.settings.enable_auto_redirect }}" data-auto-redirect-delay="{{ block.settings.auto_redirect_delay }}">
   <div id="redirection-popup-modal" class="redirection-popup-modal">
     <div class="redirection-popup-header">
       <h2 id="popup-title">{{ block.settings.popup_title }}</h2>
@@ -236,7 +236,9 @@
     "overlay_bg_color": "{{ block.settings.overlay_bg_color }}",
     "overlay_opacity": {{ block.settings.overlay_opacity }},
     "button_bg_color": "{{ block.settings.button_bg_color }}",
-    "button_text_color": "{{ block.settings.button_text_color }}"
+    "button_text_color": "{{ block.settings.button_text_color }}",
+    "enable_auto_redirect": {{ block.settings.enable_auto_redirect | json }},
+    "auto_redirect_delay": {{ block.settings.auto_redirect_delay | json }}
   }
 </script>
 
@@ -384,19 +386,19 @@
     },
     {
       "type": "header",
-      "content": "Behavior"
+      "content": "Auto Redirect Settings"
     },
     {
       "type": "checkbox",
-      "id": "show_on_load",
-      "label": "Show popup on page load",
-      "default": true
+      "id": "enable_auto_redirect",
+      "label": "Enable Auto Redirect",
+      "default": false
     },
     {
-      "type": "checkbox",
-      "id": "enable_geolocation",
-      "label": "Auto-detect user's country",
-      "default": true
+      "type": "text",
+      "id": "auto_redirect_delay",
+      "label": "Auto Redirect Delay (ms)",
+      "default": "500"
     }
   ]
 }
