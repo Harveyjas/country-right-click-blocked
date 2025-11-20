@@ -51,7 +51,7 @@
 </script>
 
 <!-- Redirection Popup Modal -->
-<div id="redirection-popup-overlay" class="redirection-popup-overlay" style="display: none;" data-show-on-load="true" data-enable-geolocation="true" data-enable-auto-redirect="{{ block.settings.enable_auto_redirect }}" data-auto-redirect-delay="{{ block.settings.auto_redirect_delay }}">
+<div id="redirection-popup-overlay" class="redirection-popup-overlay" style="display: none;" data-show-on-load="true" data-enable-geolocation="true" data-enable-auto-redirect="{{ block.settings.enable_auto_redirect }}">
   <div id="redirection-popup-modal" class="redirection-popup-modal">
     <div class="redirection-popup-header">
       <h2 id="popup-title">{{ block.settings.popup_title }}</h2>
@@ -80,7 +80,7 @@
               <div class="location-benefits">
                 {{ block.settings.location_benefits }}
               </div>
-              <button type="button" id="confirm-location-btn" class="redirection-popup-btn-primary">{{ block.settings.confirm_location_text }}</button>
+              <button type="button" id="confirm-location-btn" class="redirection-popup-btn-primary">{{ block.settings.continue_button_text }}</button>
               <button type="button" id="change-location-btn" class="change-location-link">{{ block.settings.change_location_text }}</button>
             </div>
 
@@ -155,7 +155,7 @@
                   </ul>
                 </div>
               </div>
-              <button type="button" id="shop-now-btn" class="redirection-popup-btn-primary">{{ block.settings.shop_now_text }}</button>
+              <button type="button" id="shop-now-btn" class="redirection-popup-btn-primary">{{ block.settings.redirect_button_text }}</button>
             </div>
           {% elsif block.settings.popup_type == 'dropdown' %}
             <div class="country-selector-wrapper">
@@ -237,8 +237,7 @@
     "overlay_opacity": {{ block.settings.overlay_opacity }},
     "button_bg_color": "{{ block.settings.button_bg_color }}",
     "button_text_color": "{{ block.settings.button_text_color }}",
-    "enable_auto_redirect": {{ block.settings.enable_auto_redirect | json }},
-    "auto_redirect_delay": {{ block.settings.auto_redirect_delay | json }}
+    "enable_auto_redirect": {{ block.settings.enable_auto_redirect | json }}
   }
 </script>
 
@@ -248,16 +247,51 @@
   "target": "body",
   "settings": [
     {
+      "type": "header",
+      "content": "Auto Redirect"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_auto_redirect",
+      "label": "Enable Auto Redirect",
+      "info": "Automatically redirect users to their country-specific page based on geolocation. When enabled, the popup is not shown.",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Popup Type"
+    },
+    {
+      "type": "select",
+      "id": "popup_type",
+      "label": "Popup Layout Type",
+      "default": "dropdown",
+      "options": [
+        {
+          "value": "simple_selector",
+          "label": "Simple Selector"
+        },
+        
+        
+        {
+          "value": "dropdown",
+          "label": "Dropdown Selector"
+        },
+        {
+          "value": "location_confirmation",
+          "label": "Location Confirmation"
+        },
+        {
+          "value": "button_grid",
+          "label": "Button Grid"
+        }
+      ]
+    },
+    {
       "type": "text",
       "id": "popup_title",
       "label": "Popup Title",
-      "default": "Select Your Market"
-    },
-    {
-      "type": "richtext",
-      "id": "popup_description",
-      "label": "Popup Description",
-      "default": "<p>Please select your country or market to continue shopping with the appropriate pricing and availability for your region.</p>"
+      "default": "Select Your Country"
     },
     {
       "type": "text",
@@ -267,15 +301,9 @@
     },
     {
       "type": "text",
-      "id": "select_placeholder",
-      "label": "Select Placeholder Text",
-      "default": "Select Country"
-    },
-    {
-      "type": "text",
       "id": "redirect_button_text",
       "label": "Redirect Button Text",
-      "default": "Go to Market"
+      "default": "Shop Now"
     },
     {
       "type": "text",
@@ -320,40 +348,8 @@
       "label": "Button Text Color",
       "default": "#ffffff"
     },
-    {
-      "type": "header",
-      "content": "Popup Type"
-    },
-    {
-      "type": "select",
-      "id": "popup_type",
-      "label": "Popup Layout Type",
-      "default": "dropdown",
-      "options": [
-        {
-          "value": "location_confirmation",
-          "label": "Location Confirmation"
-        },
-        {
-          "value": "simple_selector",
-          "label": "Simple Selector"
-        },
-        {
-          "value": "dropdown",
-          "label": "Dropdown Selector"
-        },
-        {
-          "value": "button_grid",
-          "label": "Button Grid"
-        }
-      ]
-    },
-    {
-      "type": "text",
-      "id": "confirm_location_text",
-      "label": "Confirm Location Button Text",
-      "default": "Continue"
-    },
+    
+    
     {
       "type": "text",
       "id": "change_location_text",
@@ -377,28 +373,6 @@
       "id": "selector_description",
       "label": "Selector Description",
       "default": "Please select your shipping country. Remember that we can only ship your order to addresses located in the chosen country."
-    },
-    {
-      "type": "text",
-      "id": "shop_now_text",
-      "label": "Shop Now Button Text",
-      "default": "Shop now"
-    },
-    {
-      "type": "header",
-      "content": "Auto Redirect Settings"
-    },
-    {
-      "type": "checkbox",
-      "id": "enable_auto_redirect",
-      "label": "Enable Auto Redirect",
-      "default": false
-    },
-    {
-      "type": "text",
-      "id": "auto_redirect_delay",
-      "label": "Auto Redirect Delay (ms)",
-      "default": "500"
     }
   ]
 }

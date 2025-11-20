@@ -228,8 +228,9 @@ function CountrySelector({ selectedCountries, onSelectMultiple, onRemoveMultiple
 
 export const loader = async ({ request }) => {
   try {
-    const { admin } = await authenticate.admin(request);
+    const { admin, session } = await authenticate.admin(request);
     const countryCodeToName = getCountryNameMap();
+    const shop = session.shop;
 
     const metafieldResponse = await admin.graphql(
       `#graphql
@@ -426,10 +427,10 @@ export const loader = async ({ request }) => {
     
     const markets = Object.values(marketsMap);
 
-    return json({ redirectionRules, markets });
+    return json({ redirectionRules, markets, shop });
   } catch (error) {
     console.error("Loader Error:", error);
-    return json({ redirectionRules: [], markets: [] });
+    return json({ redirectionRules: [], markets: [], shop: null });
   }
 };
 
@@ -966,7 +967,7 @@ function EditRedirectionModal({ isOpen, onClose, onSave, rule, allRules = [] }) 
 }
 
 export default function RedirectionRules() {
-  const { redirectionRules: initialRules, markets: initialMarkets } = useLoaderData();
+  const { redirectionRules: initialRules, markets: initialMarkets, shop } = useLoaderData();
   const [redirections, setRedirections] = useState([]);
   const [markets, setMarkets] = useState([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -1256,13 +1257,17 @@ export default function RedirectionRules() {
                               <strong>Add to Your Theme</strong>
                             </Text>
                             <Text as="p" variant="bodySm" color="subdued">
-                              Configure the country blocker block directly from your Shopify theme editor
+                              Configure the country Popu-Up block directly from your Shopify theme editor
                             </Text>
                           </div>
                           
                           <Button variant="primary" size="large" fullWidth onClick={() => {
                             try {
-                              const shopName = window.location.hostname.split('.')[0];
+                              if (!shop) {
+                                console.error('Shop information not available');
+                                return;
+                              }
+                              const shopName = shop.replace('.myshopify.com', '');
                               const embedUrl = `https://admin.shopify.com/store/${shopName}/themes/current/editor?context=apps&template=index&activateAppId=d7c3a32f-9572-4caf-aadd-ab0a618f3c30/redirection_popup`;
                               window.open(embedUrl, '_blank');
                             } catch (error) {
@@ -1273,7 +1278,7 @@ export default function RedirectionRules() {
                           </Button>
                           
                           <Text as="p" variant="bodySm" color="subdued">
-                            💡 Tip: You can add the country blocker block to any theme section and customize its appearance
+                            💡 Tip: You can add the country Pop-up to any theme section and customize its appearance
                           </Text>
                         </BlockStack>
                       </div>

@@ -18,7 +18,6 @@
       this.settings = this.getBlockSettings();
       this.selectedCountryData = { code: '', type: '', redirectUrl: '' };
       this.enableAutoRedirect = this.popup?.getAttribute('data-enable-auto-redirect') === 'true';
-      this.autoRedirectDelay = parseInt(this.popup?.getAttribute('data-auto-redirect-delay') || 500, 10);
       
       this.init();
     }
@@ -305,6 +304,9 @@
     }
 
     handleAutoRedirect() {
+      this.setCookie(COOKIE_NAME, 'true', COOKIE_DAYS);
+      sessionStorage.setItem(STORAGE_KEY, 'true');
+
       fetch('https://api.country.is/')
         .then(response => response.json())
         .then(data => {
@@ -313,33 +315,27 @@
         })
         .catch(error => {
           console.error('Error detecting country for auto-redirect:', error);
-          this.setCookie(COOKIE_NAME, 'true', COOKIE_DAYS);
         });
     }
 
     performAutoRedirect(countryCode) {
       if (!countryCode) {
         console.warn('Country code not detected');
-        this.setCookie(COOKIE_NAME, 'true', COOKIE_DAYS);
         return;
       }
 
-      setTimeout(() => {
-        const redirectRules = this.getRedirectRules();
-        const form = this.localizationForm?.querySelector('form');
-        const countryCodeInput = this.localizationForm?.querySelector('input[name="country_code"]');
+      const redirectRules = this.getRedirectRules();
+      const form = this.localizationForm?.querySelector('form');
+      const countryCodeInput = this.localizationForm?.querySelector('input[name="country_code"]');
 
-        if (redirectRules[countryCode]) {
-          window.location.href = redirectRules[countryCode];
-        } else if (form && countryCodeInput) {
-          countryCodeInput.value = countryCode;
-          this.setCookie(COOKIE_NAME, 'true', COOKIE_DAYS);
-          form.submit();
-        } else {
-          console.warn('Unable to perform auto-redirect');
-          this.setCookie(COOKIE_NAME, 'true', COOKIE_DAYS);
-        }
-      }, this.autoRedirectDelay);
+      if (redirectRules[countryCode]) {
+        window.location.href = redirectRules[countryCode];
+      } else if (form && countryCodeInput) {
+        countryCodeInput.value = countryCode;
+        form.submit();
+      } else {
+        console.warn('Unable to perform auto-redirect');
+      }
     }
 
     getRedirectRules() {
