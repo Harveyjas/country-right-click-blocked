@@ -45,11 +45,13 @@ export const loader = async ({ request }) => {
         sub.name?.toLowerCase().includes("forever 1") || 
         sub.name?.toLowerCase().includes("forever 2.99") ||
         sub.name?.toLowerCase().includes("2.99") ||
+        sub.name?.toLowerCase().includes("growth") ||
         sub.name?.toLowerCase().includes("premium")
       );
       
       const freePlan = activeSubscriptions.find(sub => 
         sub.name?.toLowerCase().includes("forever free") || 
+        sub.name?.toLowerCase().includes("essential") ||
         sub.name?.toLowerCase().includes("free")
       );
       
@@ -119,7 +121,7 @@ export default function Index() {
                   <Banner status="success">
                     <BlockStack gap="200">
                       <Text as="p" variant="bodyMd">
-                        ✓ You have an active <strong>{planType === "premium" ? "Premium" : "Free"}</strong> plan
+                        ✓ You have an active <strong>{planType === "premium" ? "Growth" : "Essential"}</strong> plan
                       </Text>
                     </BlockStack>
                   </Banner>

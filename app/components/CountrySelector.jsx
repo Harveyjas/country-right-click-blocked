@@ -587,7 +587,7 @@ export default function CountrySelector({
       return (
         <Banner status="info">
           <Text as="p" variant="bodyMd">
-            You are on the <strong>Free Plan</strong>. You can block up to 5 countries.
+            You are on the <strong>Essential Plan</strong>. You can block up to 5 countries.
           </Text>
         </Banner>
       );

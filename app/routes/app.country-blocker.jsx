@@ -62,16 +62,18 @@ export const loader = async ({ request }) => {
       });
       
       // Check for plan type based on name
-      // Assuming plan names are "Forever Free" and "Forever 2.99"
+      // Assuming plan names are "Forever Free", "Essential", "Forever 2.99", and "Growth"
       const premiumPlan = activeSubscriptions.find(sub => 
         sub.name?.toLowerCase().includes("forever 1") || 
         sub.name?.toLowerCase().includes("forever 2.99") ||
         sub.name?.toLowerCase().includes("2.99") ||
+        sub.name?.toLowerCase().includes("growth") ||
         sub.name?.toLowerCase().includes("premium")
       );
       
       const freePlan = activeSubscriptions.find(sub => 
         sub.name?.toLowerCase().includes("forever free") || 
+        sub.name?.toLowerCase().includes("essential") ||
         sub.name?.toLowerCase().includes("free")
       );
       
@@ -340,9 +342,9 @@ export default function Index() {
             <BlockStack gap="400">
             <Card>
               <BlockStack gap="400">
-                <Text as="h2" variant="headingMd">
+                {/* <Text as="h2" variant="headingMd">
                   Country Selection
-                </Text>
+                </Text> */}
                 
                 {/* Visual feedback for save operations */}
                 {feedbackMessage && (
@@ -370,11 +372,11 @@ export default function Index() {
                   </Banner>
                 )}
                 
-                {planType === "free" && (
+                {/* {planType === "free" && (
                   <Banner status="info">
                     <BlockStack gap="200">
                       <Text as="p" variant="bodyMd">
-                        You are on the <strong>Forever Free</strong> plan which allows blocking up to 5 countries.
+                        You are on the <strong>Essential</strong> plan which allows blocking up to 5 countries.
                       </Text>
                       {selectedCountries.length >= countryLimit && (
                         <Text as="p" variant="bodyMd">
@@ -386,7 +388,7 @@ export default function Index() {
                       </Button>
                     </BlockStack>
                   </Banner>
-                )}
+                )} */}
                 
                 {/* {planType === "premium" && (
                   <Banner status="success">

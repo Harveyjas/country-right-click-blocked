@@ -75,11 +75,13 @@ export const loader = async ({ request }) => {
         sub.name?.toLowerCase().includes("forever 1") || 
         sub.name?.toLowerCase().includes("forever 2.99") ||
         sub.name?.toLowerCase().includes("2.99") ||
+        sub.name?.toLowerCase().includes("growth") ||
         sub.name?.toLowerCase().includes("premium")
       );
       
       const freePlan = activeSubscriptions.find(sub => 
         sub.name?.toLowerCase().includes("forever free") || 
+        sub.name?.toLowerCase().includes("essential") ||
         sub.name?.toLowerCase().includes("free")
       );
       

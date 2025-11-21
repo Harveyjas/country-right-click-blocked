@@ -68,16 +68,18 @@ export const loader = async ({ request }) => {
       hasPlan = true;
       
       // Check for plan type based on name
-      // Assuming plan names are "Forever Free" and "Forever 2.99"
+      // Assuming plan names are "Forever Free", "Essential", "Forever 2.99", and "Growth"
       const premiumPlan = activeSubscriptions.find(sub => 
         sub.name?.toLowerCase().includes("forever 1") || 
         sub.name?.toLowerCase().includes("forever 2.99") ||
         sub.name?.toLowerCase().includes("2.99") ||
+        sub.name?.toLowerCase().includes("growth") ||
         sub.name?.toLowerCase().includes("premium")
       );
       
       const freePlan = activeSubscriptions.find(sub => 
         sub.name?.toLowerCase().includes("forever free") || 
+        sub.name?.toLowerCase().includes("essential") ||
         sub.name?.toLowerCase().includes("free")
       );
       
@@ -145,13 +147,14 @@ export const action = async ({ request }) => {
       sub.name?.toLowerCase().includes("forever 1") || 
       sub.name?.toLowerCase().includes("forever 2.99") ||
       sub.name?.toLowerCase().includes("2.99") ||
+      sub.name?.toLowerCase().includes("growth") ||
       sub.name?.toLowerCase().includes("premium")
     );
     
     // If not on premium plan, don't allow enabling this feature
     if (!premiumPlan) {
       return json({ 
-        error: "This feature is only available on the Premium plan", 
+        error: "This feature is only available on the Growth plan", 
         success: false 
       }, { status: 403 });
     }
@@ -386,13 +389,13 @@ export default function Shortcuts() {
                   <Banner status="info">
                     <BlockStack gap="200">
                       <Text as="p" variant="bodyMd">
-                        You are on the <strong>Forever Free</strong> plan.
+                        You are on the <strong>Essential</strong> plan.
                       </Text>
                       <Text as="p" variant="bodyMd">
-                        <strong>Note:</strong> Keyboard shortcuts blocking is a premium feature. Upgrade to the premium plan to access this functionality.
+                        <strong>Note:</strong> Keyboard shortcuts blocking is a Growth plan feature. Upgrade to the Growth plan to access this functionality.
                       </Text>
                       <Button onClick={handleManagePricingClick} variant="primary">
-                        Upgrade to Premium
+                        Upgrade to Growth
                       </Button>
                     </BlockStack>
                   </Banner>
@@ -528,14 +531,14 @@ export default function Shortcuts() {
             <Card>
               <BlockStack gap="400">
                 <Text as="h2" variant="headingMd">
-                  Premium Features
+                  Growth Plan Features
                 </Text>
                 <Text as="p" variant="bodyMd">
-                  The Keyboard Shortcuts Blocker is a premium feature that helps protect your content and enhance security.
+                  The Keyboard Shortcuts Blocker is a Growth plan feature that helps protect your content and enhance security.
                 </Text>
                 <BlockStack gap="200">
                   <Text as="h3" variant="headingSm">
-                    Premium Plan Benefits:
+                    Growth Plan Benefits:
                   </Text>
                   <ul>
                     <li><Text as="span" variant="bodyMd">Disable keyboard shortcuts</Text></li>
@@ -547,7 +550,7 @@ export default function Shortcuts() {
                 </BlockStack>
                 {!isPremiumPlan && (
                   <Button onClick={handleManagePricingClick} variant="primary" fullWidth>
-                    Upgrade to Premium
+                    Upgrade to Growth
                   </Button>
                 )}
               </BlockStack>

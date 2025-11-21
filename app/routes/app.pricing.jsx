@@ -54,16 +54,18 @@ export const loader = async ({ request }) => {
       });
       
       // Check for plan type based on name
-      // Assuming plan names are "Forever Free" and "Forever 2.99"
+      // Assuming plan names are "Forever Free", "Essential", "Forever 2.99", and "Growth"
       const premiumPlan = activeSubscriptions.find(sub => 
         sub.name?.toLowerCase().includes("forever 1") || 
         sub.name?.toLowerCase().includes("forever 2.99") ||
         sub.name?.toLowerCase().includes("2.99") ||
+        sub.name?.toLowerCase().includes("growth") ||
         sub.name?.toLowerCase().includes("premium")
       );
       
       const freePlan = activeSubscriptions.find(sub => 
         sub.name?.toLowerCase().includes("forever free") || 
+        sub.name?.toLowerCase().includes("essential") ||
         sub.name?.toLowerCase().includes("free")
       );
       
@@ -123,13 +125,13 @@ export default function PricingRedirect() {
               {planType === "free" && (
                 <>
                   <Text as="h2" variant="headingMd">
-                    You're on the Forever Free Plan
+                    You're on the Essential Plan
                   </Text>
                   <Text as="p" variant="bodyMd">
                     Your current plan allows you to block up to 5 countries and use all other features.
                   </Text>
                   <Text as="p" variant="bodyMd">
-                    Consider upgrading to the Premium plan for unlimited country blocking.
+                    Consider upgrading to the Growth plan for unlimited country blocking.
                   </Text>
                 </>
               )}
@@ -137,7 +139,7 @@ export default function PricingRedirect() {
               {planType === "premium" && (
                 <>
                   <Text as="h2" variant="headingMd">
-                    You're on the Premium Plan
+                    You're on the Growth Plan
                   </Text>
                   <Text as="p" variant="bodyMd">
                     You have full access to all features, including unlimited country blocking.
