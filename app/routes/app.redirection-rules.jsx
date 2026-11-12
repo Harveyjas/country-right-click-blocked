@@ -1108,7 +1108,7 @@ export default function RedirectionRules() {
   ]);
 
   return (
-    <Page title="Redirection rules" backAction={{ content: "Back to overview", url: "/app" }} fullWidth>
+    <Page title="Geo redirects" subtitle="Send visitors from selected countries to a different URL." backAction={{ content: "Dashboard", url: "/app" }} fullWidth>
       <BlockStack gap="800">
         {bannerMessage && (
           <Banner title="Success" onDismiss={() => setBannerMessage('')} tone="success">
@@ -1126,10 +1126,10 @@ export default function RedirectionRules() {
               <Box paddingBlockEnd="400">
                 <BlockStack gap="200">
                   <Text as="h1" variant="headingLg">
-                    Redirection Rules
+                    Your redirect rules
                   </Text>
                   <Text as="p" variant="bodyMd" tone="subdued">
-                    Create country-specific redirect URLs for seamless global operations.
+                    Create country-specific redirects so visitors land on the right destination.
                   </Text>
                 </BlockStack>
               </Box>
@@ -1145,7 +1145,7 @@ export default function RedirectionRules() {
                     <InlineStack align="space-between" blockAlign="center">
                       <BlockStack gap="200">
                         <Text as="h2" variant="headingMd">
-                          🔀 Redirection Rules
+                          Geo redirect rules
                         </Text>
                         <Text as="p" variant="bodySm" tone="subdued">
                           Set up country-specific redirect URLs

@@ -11,7 +11,19 @@ import {
   Banner,
   SettingToggle,
   InlineStack,
+  Box,
+  Badge,
+  Icon,
+  Divider,
 } from "@shopify/polaris";
+import {
+  LockIcon,
+  ThemeIcon,
+  ShieldCheckMarkIcon,
+  AlertTriangleIcon,
+  CheckCircleIcon,
+  InfoIcon,
+} from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }) => {
@@ -242,6 +254,321 @@ export const action = async ({ request }) => {
   }
 };
 
+const PROTECTION_GROUPS = [
+  {
+    title: "Content protection",
+    items: [
+      { keys: "Ctrl+C", label: "Copy" },
+      { keys: "Ctrl+X", label: "Cut" },
+      { keys: "Ctrl+A", label: "Select all" },
+    ],
+  },
+  {
+    title: "Source code",
+    items: [
+      { keys: "Ctrl+U", label: "View source" },
+      { keys: "Ctrl+S", label: "Save page" },
+    ],
+  },
+  {
+    title: "Developer tools",
+    items: [
+      { keys: "F12", label: "Developer tools" },
+      { keys: "Ctrl+Shift+I", label: "Inspect element" },
+      { keys: "Ctrl+Shift+J", label: "JavaScript console" },
+    ],
+  },
+  {
+    title: "Other restrictions",
+    items: [
+      { keys: "Ctrl+P", label: "Print" },
+      { keys: "Shift+F10", label: "Context menu" },
+      { keys: "Right-click", label: "Context menu" },
+      { keys: "Ctrl+R / F5", label: "Reload page" },
+    ],
+  },
+];
+
+function PlanBadge({ hasPlan, isPremiumPlan, isFreePlan }) {
+  if (!hasPlan) {
+    return <Badge tone="warning">No plan</Badge>;
+  }
+  if (isPremiumPlan) {
+    return <Badge tone="success">Growth</Badge>;
+  }
+  if (isFreePlan) {
+    return <Badge tone="info">Essential</Badge>;
+  }
+  return <Badge>Plan active</Badge>;
+}
+
+function StatusOverview({
+  enabled,
+  isPremiumPlan,
+  hasPlan,
+  isFreePlan,
+  isSaving,
+}) {
+  const protectionOn = enabled && isPremiumPlan;
+
+  let headline = "Content protection";
+  let detail = "Discourage casual copying with right-click and shortcut blocking.";
+
+  if (!hasPlan) {
+    detail = "Select a subscription plan, then upgrade to Growth to use this feature.";
+  } else if (isFreePlan) {
+    detail = "Available on the Growth plan. Upgrade to enable storefront protection.";
+  } else if (protectionOn) {
+    detail = "Protection is on. Right-click and selected shortcuts are blocked once the theme block is live.";
+  } else if (isPremiumPlan) {
+    detail = "Turn protection on, then enable the app block in your theme editor.";
+  }
+
+  return (
+    <Card padding="0">
+      <Box padding="400">
+        <InlineStack align="space-between" blockAlign="start" wrap gap="400">
+          <InlineStack gap="300" blockAlign="start" wrap={false}>
+            <Box
+              background={
+                protectionOn
+                  ? "bg-fill-success-secondary"
+                  : "bg-fill-warning-secondary"
+              }
+              padding="200"
+              borderRadius="200"
+              minHeight="40px"
+              minWidth="40px"
+            >
+              <InlineStack align="center" blockAlign="center">
+                <Icon
+                  source={protectionOn ? ShieldCheckMarkIcon : LockIcon}
+                  tone={protectionOn ? "success" : "warning"}
+                />
+              </InlineStack>
+            </Box>
+            <BlockStack gap="100">
+              <InlineStack gap="200" blockAlign="center" wrap>
+                <Text as="h2" variant="headingMd">
+                  {headline}
+                </Text>
+                <PlanBadge
+                  hasPlan={hasPlan}
+                  isPremiumPlan={isPremiumPlan}
+                  isFreePlan={isFreePlan}
+                />
+                {isSaving && (
+                  <Badge tone="info" size="small">
+                    Saving…
+                  </Badge>
+                )}
+              </InlineStack>
+              <Text as="p" variant="bodySm" tone="subdued">
+                {detail}
+              </Text>
+            </BlockStack>
+          </InlineStack>
+
+          <Box
+            background="bg-surface-secondary"
+            padding="300"
+            borderRadius="200"
+            minWidth="120px"
+          >
+            <BlockStack gap="050">
+              <Text as="p" variant="headingXl" fontWeight="semibold" alignment="center">
+                {protectionOn ? "On" : "Off"}
+              </Text>
+              <Text as="p" variant="bodySm" tone="subdued" alignment="center">
+                {protectionOn ? "Protection active" : "Not enabled"}
+              </Text>
+            </BlockStack>
+          </Box>
+        </InlineStack>
+      </Box>
+    </Card>
+  );
+}
+
+function ThemeIntegrationCard({ isPremiumPlan, onEmbedClick }) {
+  return (
+    <Card padding="0">
+      <Box padding="400">
+        <BlockStack gap="400">
+          <InlineStack gap="300" blockAlign="start" wrap={false}>
+            <Box
+              background="bg-fill-success-secondary"
+              padding="200"
+              borderRadius="200"
+              minHeight="40px"
+              minWidth="40px"
+            >
+              <InlineStack align="center" blockAlign="center">
+                <Icon source={ThemeIcon} tone="success" />
+              </InlineStack>
+            </Box>
+            <BlockStack gap="050">
+              <Text as="h2" variant="headingMd">
+                Theme integration
+              </Text>
+              <Text as="p" variant="bodySm" tone="subdued">
+                Add the Content protection block so settings apply on your live storefront.
+              </Text>
+            </BlockStack>
+          </InlineStack>
+
+          {!isPremiumPlan ? (
+            <Box background="bg-surface-warning" padding="300" borderRadius="200">
+              <BlockStack gap="100">
+                <Text as="p" variant="bodyMd" fontWeight="semibold">
+                  Growth plan required
+                </Text>
+                <Text as="p" variant="bodySm" tone="subdued">
+                  Upgrade to Growth to unlock theme integration for content protection.
+                </Text>
+              </BlockStack>
+            </Box>
+          ) : (
+            <BlockStack gap="300">
+              <Box
+                background="bg-surface-secondary"
+                padding="300"
+                borderRadius="200"
+              >
+                <BlockStack gap="300">
+                  <InlineStack gap="200" blockAlign="start" wrap={false}>
+                    <Badge tone="info">1</Badge>
+                    <Text as="p" variant="bodySm">
+                      Open the theme editor for your published theme
+                    </Text>
+                  </InlineStack>
+                  <InlineStack gap="200" blockAlign="start" wrap={false}>
+                    <Badge tone="info">2</Badge>
+                    <Text as="p" variant="bodySm">
+                      Enable the Content protection app block
+                    </Text>
+                  </InlineStack>
+                  <InlineStack gap="200" blockAlign="start" wrap={false}>
+                    <Badge tone="info">3</Badge>
+                    <Text as="p" variant="bodySm">
+                      Save — shortcut blocking goes live on the storefront
+                    </Text>
+                  </InlineStack>
+                </BlockStack>
+              </Box>
+
+              <Button
+                onClick={onEmbedClick}
+                variant="primary"
+                size="large"
+                fullWidth
+                disabled={!isPremiumPlan}
+              >
+                Open theme editor
+              </Button>
+            </BlockStack>
+          )}
+        </BlockStack>
+      </Box>
+      {isPremiumPlan && (
+        <>
+          <Divider />
+          <Box padding="300" paddingInline="400" background="bg-surface-secondary">
+            <InlineStack gap="200" blockAlign="center" wrap={false}>
+              <Icon source={CheckCircleIcon} tone="success" />
+              <Text as="p" variant="bodySm" tone="subdued">
+                Toggle protection above, then enable the block once to go live.
+              </Text>
+            </InlineStack>
+          </Box>
+        </>
+      )}
+    </Card>
+  );
+}
+
+function HowItWorksCard() {
+  return (
+    <Card>
+      <BlockStack gap="300">
+        <InlineStack gap="200" blockAlign="center">
+          <Icon source={InfoIcon} tone="base" />
+          <Text as="h2" variant="headingSm">
+            How it works
+          </Text>
+        </InlineStack>
+        <BlockStack gap="200">
+          <Text as="p" variant="bodySm" tone="subdued">
+            When enabled, common copy shortcuts and right-click are blocked for visitors on your storefront.
+          </Text>
+          <Text as="p" variant="bodySm" tone="subdued">
+            This discourages casual copying — it does not guarantee security or stop determined users.
+          </Text>
+        </BlockStack>
+      </BlockStack>
+    </Card>
+  );
+}
+
+function ShortcutChip({ keys, label }) {
+  return (
+    <Box
+      background="bg-surface-secondary"
+      padding="200"
+      paddingInline="300"
+      borderRadius="200"
+    >
+      <InlineStack gap="200" blockAlign="center" wrap={false}>
+        <Badge>{keys}</Badge>
+        <Text as="span" variant="bodySm">
+          {label}
+        </Text>
+      </InlineStack>
+    </Box>
+  );
+}
+
+function ProtectedShortcutsCard() {
+  return (
+    <Card padding="0">
+      <Box padding="400" paddingBlockEnd="300">
+        <InlineStack align="space-between" blockAlign="center" wrap gap="200">
+          <BlockStack gap="050">
+            <Text as="h2" variant="headingMd">
+              Shortcuts disabled
+            </Text>
+            <Text as="p" variant="bodySm" tone="subdued">
+              These actions are blocked on your storefront while protection is on
+            </Text>
+          </BlockStack>
+          <Badge tone="success">Active</Badge>
+        </InlineStack>
+      </Box>
+      <Divider />
+      <Box padding="400">
+        <BlockStack gap="400">
+          {PROTECTION_GROUPS.map((group) => (
+            <BlockStack key={group.title} gap="200">
+              <Text as="h3" variant="headingSm">
+                {group.title}
+              </Text>
+              <InlineStack gap="200" wrap>
+                {group.items.map((item) => (
+                  <ShortcutChip
+                    key={`${group.title}-${item.keys}`}
+                    keys={item.keys}
+                    label={item.label}
+                  />
+                ))}
+              </InlineStack>
+            </BlockStack>
+          ))}
+        </BlockStack>
+      </Box>
+    </Card>
+  );
+}
+
 export default function Shortcuts() {
   const { isEnabled, error, shopDomain, apiKey, hasPlan, planType } = useLoaderData();
   const [enabled, setEnabled] = useState(isEnabled);
@@ -360,8 +687,9 @@ export default function Shortcuts() {
   
   return (
     <Page
-      title="Keyboard shortcuts"
-      backAction={{ content: "Back to overview", url: "/app" }}
+      title="Content protection"
+      subtitle="Disable right-click and common keyboard shortcuts on your storefront."
+      backAction={{ content: "Dashboard", url: "/app" }}
       primaryAction={{
         content: "Manage Subscription",
         onAction: handleManagePricingClick,
@@ -369,193 +697,152 @@ export default function Shortcuts() {
       }}
     >
       <BlockStack gap="500">
-        <Layout>
-          <Layout.Section>
-            <BlockStack gap="400">
-            <Card>
-              <BlockStack gap="400">
-                
-                {!hasPlan && (
-                  <Banner status="warning">
-                    <Text as="p" variant="bodyMd">
-                      You need to select a subscription plan to use this feature.
-                    </Text>
+        {(
+          !hasPlan ||
+          isFreePlan ||
+          saveStatus.success ||
+          saveStatus.error
+        ) && (
+          <BlockStack gap="300">
+            {!hasPlan && (
+              <Banner tone="warning">
+                <BlockStack gap="200">
+                  <Text as="p" variant="bodyMd">
+                    You need to select a subscription plan to use this feature.
+                  </Text>
+                  <InlineStack>
                     <Button onClick={handleManagePricingClick} variant="primary">
                       Manage Subscription
                     </Button>
-                  </Banner>
-                )}
-                
-                {isFreePlan && (
-                  <Banner status="info">
-                    <BlockStack gap="200">
-                      <Text as="p" variant="bodyMd">
-                        You are on the <strong>Essential</strong> plan.
-                      </Text>
-                      <Text as="p" variant="bodyMd">
-                        <strong>Note:</strong> Keyboard shortcuts blocking is a Growth plan feature. Upgrade to the Growth plan to access this functionality.
-                      </Text>
-                      <Button onClick={handleManagePricingClick} variant="primary">
-                        Upgrade to Growth
-                      </Button>
-                    </BlockStack>
-                  </Banner>
-                )}
-                
-                {/* {isPremiumPlan && (
-                  <Banner status="success">
-                    <Text as="p" variant="bodyMd">
-                      You are on the <strong>Premium</strong> plan with full access to all features.
-                    </Text>
-                  </Banner>
-                )} */}
-                
-                {saveStatus.success && (
-                  <Banner status="success">
-                    <Text as="p" variant="bodyMd">
-                      Settings saved successfully!
-                    </Text>
-                  </Banner>
-                )}
-                
-                {saveStatus.error && (
-                  <Banner status="critical">
-                    <Text as="p" variant="bodyMd">
-                      {saveStatus.error}
-                    </Text>
-                  </Banner>
-                )}
-                
-                <Text as="p" variant="bodyMd">
-                Enable this setting to prevent users from using keyboard shortcuts like Ctrl+C, Ctrl+X, Ctrl+U, and F12 on your website or specific pages.
-                </Text>
-                
-                <div style={{ opacity: isPremiumPlan ? 1 : 0.5 }}>
-                  <SettingToggle
-                    action={{
-                      content: enabled ? "Disable" : "Enable",
-                      onAction: handleToggle,
-                      loading: isSaving,
-                      disabled: !isPremiumPlan,
-                      variant: "primary"
-                    }}
-                    enabled={enabled && isPremiumPlan}
-                  >
-                    <Text variant="headingMd" as="h6">
-                      Disable Keyboard Shortcuts
-                    </Text>
-                    <Text variant="bodyMd" as="p">
-                      {enabled && isPremiumPlan
-                        ? "Keyboard shortcuts are currently disabled on your website." 
-                        : "Enable to disable keyboard shortcuts like Ctrl+C, Ctrl+U, F12 on your website."}
-                    </Text>
-                  </SettingToggle>
-                </div>
-
-                <Text as="p" variant="bodyMd">
-                  Disabling shortcuts does not prevent copying or guarantee security. It can also interfere with browser features and assistive technology.
-                </Text>
-                
-                {enabled && isPremiumPlan && (
-                  <BlockStack gap="300">
-                    <Text as="h3" variant="headingSm">
-                      Shortcuts Disabled
-                    </Text>
-                    
-                    <Text as="p" variant="bodyMd">
-                      The following keyboard shortcuts are now disabled on your website:
-                    </Text>
-                    
-                    <BlockStack gap="200">
-                      <Text as="h4" variant="bodySm" fontWeight="bold">Content Protection:</Text>
-                      <ul>
-                        <li><Text as="span" variant="bodyMd"><strong>Ctrl+C</strong> (Copy)</Text></li>
-                        <li><Text as="span" variant="bodyMd"><strong>Ctrl+X</strong> (Cut)</Text></li>
-                        <li><Text as="span" variant="bodyMd"><strong>Ctrl+A</strong> (Select All)</Text></li>
-                      </ul>
-                      
-                      <Text as="h4" variant="bodySm" fontWeight="bold">Source Code Protection:</Text>
-                      <ul>
-                        <li><Text as="span" variant="bodyMd"><strong>Ctrl+U</strong> (View Source)</Text></li>
-                        <li><Text as="span" variant="bodyMd"><strong>Ctrl+S</strong> (Save Page)</Text></li>
-                      </ul>
-                      
-                      <Text as="h4" variant="bodySm" fontWeight="bold">Developer Tools:</Text>
-                      <ul>
-                        <li><Text as="span" variant="bodyMd"><strong>F12</strong> (Developer Tools)</Text></li>
-                        <li><Text as="span" variant="bodyMd"><strong>Ctrl+Shift+I</strong> (Inspect Element)</Text></li>
-                        <li><Text as="span" variant="bodyMd"><strong>Ctrl+Shift+J</strong> (JavaScript Console)</Text></li>
-                      </ul>
-                      
-                      <Text as="h4" variant="bodySm" fontWeight="bold">Other Restrictions:</Text>
-                      <ul>
-                        <li><Text as="span" variant="bodyMd"><strong>Ctrl+P</strong> (Print)</Text></li>
-                        <li><Text as="span" variant="bodyMd"><strong>Shift+F10</strong> (Context Menu)</Text></li>
-                        <li><Text as="span" variant="bodyMd"><strong>Right-click</strong> (Context Menu)</Text></li>
-                        <li><Text as="span" variant="bodyMd"><strong>Ctrl+R</strong> / <strong>F5</strong> (Reload Page)</Text></li>
-                      </ul>
-                    </BlockStack>
-                  </BlockStack>
-                )}
-              </BlockStack>
-            </Card>
-            <Card>
-                <BlockStack gap="400">
-                  <Text as="h2" variant="headingMd">
-                    Theme Integration
-                  </Text>
-                  <div style={{ opacity: isPremiumPlan ? 1 : 0.5 }}>
-                    <Banner status={isPremiumPlan ? "info" : "warning"}>
-                      <BlockStack gap="300">
-                        <Text as="p" variant="bodyMd">
-                          {isPremiumPlan 
-                            ? "Add the keyboard shortcuts blocker to your theme:" 
-                            : "This feature is only available on the Premium plan."}
-                        </Text>
-                        <Button onClick={handleEmbedShortcutClick} variant="primary" disabled={!isPremiumPlan}>
-                          Open Theme Editor
-                        </Button>
-                        {isPremiumPlan && (
-                          <Text as="p" variant="bodySm" color="subdued">
-                            This will open your theme editor where you can add the keyboard shortcuts blocker to your store's sections.
-                          </Text>
-                        )}
-                      </BlockStack>
-                    </Banner>
-                  </div>
+                  </InlineStack>
                 </BlockStack>
-            </Card>
+              </Banner>
+            )}
+
+            {isFreePlan && (
+              <Banner tone="info">
+                <BlockStack gap="200">
+                  <Text as="p" variant="bodyMd">
+                    You are on the <strong>Essential</strong> plan.
+                  </Text>
+                  <Text as="p" variant="bodyMd">
+                    <strong>Note:</strong> Keyboard shortcuts blocking is a Growth plan feature. Upgrade to the Growth plan to access this functionality.
+                  </Text>
+                  <InlineStack>
+                    <Button onClick={handleManagePricingClick} variant="primary">
+                      Upgrade to Growth
+                    </Button>
+                  </InlineStack>
+                </BlockStack>
+              </Banner>
+            )}
+
+            {saveStatus.success && (
+              <Banner tone="success">
+                <Text as="p" variant="bodyMd">
+                  Settings saved successfully!
+                </Text>
+              </Banner>
+            )}
+
+            {saveStatus.error && (
+              <Banner
+                tone="critical"
+                onDismiss={() => setSaveStatus({ success: false, error: null })}
+              >
+                <Text as="p" variant="bodyMd">
+                  {saveStatus.error}
+                </Text>
+              </Banner>
+            )}
+          </BlockStack>
+        )}
+
+        <Layout>
+          <Layout.Section>
+            <BlockStack gap="400">
+              <StatusOverview
+                enabled={enabled}
+                isPremiumPlan={isPremiumPlan}
+                hasPlan={hasPlan}
+                isFreePlan={isFreePlan}
+                isSaving={isSaving}
+              />
+
+              <Card padding="0">
+                <Box padding="400" paddingBlockEnd="300">
+                  <InlineStack gap="300" blockAlign="center" wrap={false}>
+                    <Box
+                      background="bg-fill-warning-secondary"
+                      padding="200"
+                      borderRadius="200"
+                    >
+                      <Icon source={LockIcon} tone="warning" />
+                    </Box>
+                    <BlockStack gap="050">
+                      <Text as="h2" variant="headingMd">
+                        Protection settings
+                      </Text>
+                      <Text as="p" variant="bodySm" tone="subdued">
+                        Turn this on to discourage casual copying on your storefront
+                      </Text>
+                    </BlockStack>
+                  </InlineStack>
+                </Box>
+                <Divider />
+                <Box padding="400">
+                  <BlockStack gap="400">
+                    <div style={{ opacity: isPremiumPlan ? 1 : 0.5 }}>
+                      <SettingToggle
+                        action={{
+                          content: enabled ? "Turn off" : "Turn on",
+                          onAction: handleToggle,
+                          loading: isSaving,
+                          disabled: !isPremiumPlan,
+                          variant: "primary"
+                        }}
+                        enabled={enabled && isPremiumPlan}
+                      >
+                        <Text variant="headingMd" as="h6">
+                          Content protection
+                        </Text>
+                        <Text variant="bodyMd" as="p">
+                          {enabled && isPremiumPlan
+                            ? "Protection is on. Right-click and selected shortcuts are blocked on your storefront." 
+                            : "Turn on to block right-click and shortcuts like Ctrl+C, Ctrl+U, and F12."}
+                        </Text>
+                      </SettingToggle>
+                    </div>
+
+                    <Box
+                      background="bg-surface-secondary"
+                      padding="300"
+                      borderRadius="200"
+                    >
+                      <InlineStack gap="200" blockAlign="start" wrap={false}>
+                        <Icon source={AlertTriangleIcon} tone="caution" />
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          Disabling shortcuts does not prevent copying or guarantee security. It can also interfere with browser features and assistive technology.
+                        </Text>
+                      </InlineStack>
+                    </Box>
+                  </BlockStack>
+                </Box>
+              </Card>
+
+              {enabled && isPremiumPlan && <ProtectedShortcutsCard />}
             </BlockStack>
           </Layout.Section>
-          {/* <Layout.Section secondary>
-            <Card>
-              <BlockStack gap="400">
-                <Text as="h2" variant="headingMd">
-                  Growth Plan Features
-                </Text>
-                <Text as="p" variant="bodyMd">
-                  The Keyboard Shortcuts Blocker is a Growth plan feature that helps protect your content and enhance security.
-                </Text>
-                <BlockStack gap="200">
-                  <Text as="h3" variant="headingSm">
-                    Growth Plan Benefits:
-                  </Text>
-                  <ul>
-                    <li><Text as="span" variant="bodyMd">Disable keyboard shortcuts</Text></li>
-                    <li><Text as="span" variant="bodyMd">Prevent right-click context menu</Text></li>
-                    <li><Text as="span" variant="bodyMd">Block developer tools access</Text></li>
-                    <li><Text as="span" variant="bodyMd">Unlimited country blocking</Text></li>
-                    <li><Text as="span" variant="bodyMd">Priority support</Text></li>
-                  </ul>
-                </BlockStack>
-                {!isPremiumPlan && (
-                  <Button onClick={handleManagePricingClick} variant="primary" fullWidth>
-                    Upgrade to Growth
-                  </Button>
-                )}
-              </BlockStack>
-            </Card>
-          </Layout.Section> */}
+
+          <Layout.Section variant="oneThird">
+            <BlockStack gap="400">
+              <ThemeIntegrationCard
+                isPremiumPlan={isPremiumPlan}
+                onEmbedClick={handleEmbedShortcutClick}
+              />
+              <HowItWorksCard />
+            </BlockStack>
+          </Layout.Section>
         </Layout>
       </BlockStack>
     </Page>

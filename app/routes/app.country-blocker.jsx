@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useFetcher, useLoaderData, useSubmit } from "@remix-run/react";
+import { useFetcher, useLoaderData } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -9,7 +9,19 @@ import {
   Button,
   Banner,
   InlineStack,
+  Box,
+  Badge,
+  Icon,
+  Divider,
+  ProgressBar,
 } from "@shopify/polaris";
+import {
+  GlobeIcon,
+  ThemeIcon,
+  ShieldCheckMarkIcon,
+  AlertTriangleIcon,
+  CheckCircleIcon,
+} from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import { json } from "@remix-run/node";
 import CountrySelector from "../components/CountrySelector";
@@ -231,9 +243,247 @@ export const action = async ({ request }) => {
   return json({ success: true, message: successMessage, actionType });
 };
 
+function PlanBadge({ planType, hasPlan }) {
+  if (!hasPlan) {
+    return <Badge tone="warning">No plan</Badge>;
+  }
+  if (planType === "premium") {
+    return <Badge tone="success">Premium</Badge>;
+  }
+  if (planType === "free") {
+    return <Badge tone="info">Essential</Badge>;
+  }
+  return <Badge>Plan active</Badge>;
+}
+
+function StatusOverview({ selectedCount, countryLimit, planType, hasPlan, isSaving }) {
+  const remaining =
+    countryLimit != null ? Math.max(countryLimit - selectedCount, 0) : null;
+  const progress =
+    countryLimit != null && countryLimit > 0
+      ? Math.min((selectedCount / countryLimit) * 100, 100)
+      : selectedCount > 0
+        ? 100
+        : 0;
+
+  let statusDetail = "Choose countries below to restrict storefront access.";
+  if (!hasPlan) {
+    statusDetail = "Select a subscription plan to start blocking countries.";
+  } else if (selectedCount === 0) {
+    statusDetail = "No countries blocked yet. Expand a region and pick countries to protect your store.";
+  } else if (countryLimit != null) {
+    statusDetail =
+      remaining === 0
+        ? `You've reached the Essential plan limit of ${countryLimit} countries.`
+        : `${remaining} of ${countryLimit} slots remaining on Essential.`;
+  } else {
+    statusDetail =
+      selectedCount === 1
+        ? "1 country is currently blocked from your storefront."
+        : `${selectedCount} countries are currently blocked from your storefront.`;
+  }
+
+  return (
+    <Card padding="0">
+      <Box padding="400">
+        <InlineStack align="space-between" blockAlign="start" wrap gap="400">
+          <InlineStack gap="300" blockAlign="start" wrap={false}>
+            <Box
+              background="bg-fill-info-secondary"
+              padding="200"
+              borderRadius="200"
+              minHeight="40px"
+              minWidth="40px"
+            >
+              <InlineStack align="center" blockAlign="center">
+                <Icon
+                  source={hasPlan ? ShieldCheckMarkIcon : AlertTriangleIcon}
+                  tone={hasPlan ? "info" : "warning"}
+                />
+              </InlineStack>
+            </Box>
+            <BlockStack gap="100">
+              <InlineStack gap="200" blockAlign="center" wrap>
+                <Text as="h2" variant="headingMd">
+                  Country blocking
+                </Text>
+                <PlanBadge planType={planType} hasPlan={hasPlan} />
+                {isSaving && (
+                  <Badge tone="info" size="small">
+                    Saving…
+                  </Badge>
+                )}
+              </InlineStack>
+              <Text as="p" variant="bodySm" tone="subdued">
+                {statusDetail}
+              </Text>
+            </BlockStack>
+          </InlineStack>
+
+          <Box
+            background="bg-surface-secondary"
+            padding="300"
+            borderRadius="200"
+            minWidth="120px"
+          >
+            <BlockStack gap="050">
+              <Text as="p" variant="headingXl" fontWeight="semibold" alignment="center">
+                {selectedCount}
+              </Text>
+              <Text as="p" variant="bodySm" tone="subdued" alignment="center">
+                {selectedCount === 1 ? "country blocked" : "countries blocked"}
+              </Text>
+            </BlockStack>
+          </Box>
+        </InlineStack>
+      </Box>
+
+      {hasPlan && countryLimit != null && (
+        <>
+          <Divider />
+          <Box padding="300" paddingInline="400" background="bg-surface-secondary">
+            <BlockStack gap="200">
+              <InlineStack align="space-between" blockAlign="center">
+                <Text as="span" variant="bodySm" tone="subdued">
+                  Plan usage
+                </Text>
+                <Text as="span" variant="bodySm" fontWeight="medium">
+                  {selectedCount}/{countryLimit}
+                </Text>
+              </InlineStack>
+              <ProgressBar
+                progress={progress}
+                size="small"
+                tone={remaining === 0 ? "critical" : "primary"}
+              />
+            </BlockStack>
+          </Box>
+        </>
+      )}
+    </Card>
+  );
+}
+
+function ThemeIntegrationCard({ hasPlan, onEmbedClick }) {
+  return (
+    <Card padding="0">
+      <Box padding="400">
+        <BlockStack gap="400">
+          <InlineStack gap="300" blockAlign="start" wrap={false}>
+            <Box
+              background="bg-fill-success-secondary"
+              padding="200"
+              borderRadius="200"
+              minHeight="40px"
+              minWidth="40px"
+            >
+              <InlineStack align="center" blockAlign="center">
+                <Icon source={ThemeIcon} tone="success" />
+              </InlineStack>
+            </Box>
+            <BlockStack gap="050">
+              <Text as="h2" variant="headingMd">
+                Theme integration
+              </Text>
+              <Text as="p" variant="bodySm" tone="subdued">
+                Add the country blocker block so rules apply on your live storefront.
+              </Text>
+            </BlockStack>
+          </InlineStack>
+
+          {!hasPlan ? (
+            <Box
+              background="bg-surface-warning"
+              padding="300"
+              borderRadius="200"
+            >
+              <BlockStack gap="100">
+                <Text as="p" variant="bodyMd" fontWeight="semibold">
+                  Subscription required
+                </Text>
+                <Text as="p" variant="bodySm" tone="subdued">
+                  Choose a plan to unlock theme integration and start protecting your store.
+                </Text>
+              </BlockStack>
+            </Box>
+          ) : (
+            <BlockStack gap="300">
+              <Box
+                background="bg-surface-secondary"
+                padding="300"
+                borderRadius="200"
+              >
+                <BlockStack gap="300">
+                  <InlineStack gap="200" blockAlign="start" wrap={false}>
+                    <Badge tone="info">1</Badge>
+                    <Text as="p" variant="bodySm">
+                      Open the theme editor for your published theme
+                    </Text>
+                  </InlineStack>
+                  <InlineStack gap="200" blockAlign="start" wrap={false}>
+                    <Badge tone="info">2</Badge>
+                    <Text as="p" variant="bodySm">
+                      Enable the Country Blocker app block
+                    </Text>
+                  </InlineStack>
+                  <InlineStack gap="200" blockAlign="start" wrap={false}>
+                    <Badge tone="info">3</Badge>
+                    <Text as="p" variant="bodySm">
+                      Save — blocked visitors are restricted instantly
+                    </Text>
+                  </InlineStack>
+                </BlockStack>
+              </Box>
+
+              <Button onClick={onEmbedClick} variant="primary" size="large" fullWidth>
+                Open theme editor
+              </Button>
+            </BlockStack>
+          )}
+        </BlockStack>
+      </Box>
+      {hasPlan && (
+        <>
+          <Divider />
+          <Box padding="300" paddingInline="400" background="bg-surface-secondary">
+            <InlineStack gap="200" blockAlign="center" wrap={false}>
+              <Icon source={CheckCircleIcon} tone="success" />
+              <Text as="p" variant="bodySm" tone="subdued">
+                Changes save automatically — enable the block once to go live.
+              </Text>
+            </InlineStack>
+          </Box>
+        </>
+      )}
+    </Card>
+  );
+}
+
+function HowItWorksCard() {
+  return (
+    <Card>
+      <BlockStack gap="300">
+        <InlineStack gap="200" blockAlign="center">
+          <Icon source={GlobeIcon} tone="base" />
+          <Text as="h2" variant="headingSm">
+            How blocking works
+          </Text>
+        </InlineStack>
+        <BlockStack gap="200">
+          <Text as="p" variant="bodySm" tone="subdued">
+            Visitors from selected countries won't reach your storefront content once the theme block is active.
+          </Text>
+          <Text as="p" variant="bodySm" tone="subdued">
+            Use Quick Select for whole regions, or expand a continent to fine-tune individual countries.
+          </Text>
+        </BlockStack>
+      </BlockStack>
+    </Card>
+  );
+}
+
 export default function Index() {
   const { shop, apiKey, hasPlan, planType, selectedCountries: initialCountries, countryLimit } = useLoaderData();
-  const submit = useSubmit();
   const fetcher = useFetcher();
   const [selectedCountries, setSelectedCountries] = useState(initialCountries || []);
   const [feedbackMessage, setFeedbackMessage] = useState(null);
@@ -329,154 +579,113 @@ export default function Index() {
     }
   }, [shop]);
 
+  const isSaving = fetcher.state === "submitting";
+
   return (
-    <Page title="Country blocking" backAction={{ content: "Back to overview", url: "/app" }}>
+    <Page
+      title="Block countries"
+      subtitle="Choose which countries can access your storefront."
+      backAction={{ content: "Dashboard", url: "/app" }}
+    >
       <BlockStack gap="500">
+        {(feedbackMessage || isSaving || !hasPlan) && (
+          <BlockStack gap="300">
+            {feedbackMessage && (
+              <Banner
+                tone={feedbackType === "critical" ? "critical" : "success"}
+                onDismiss={() => setFeedbackMessage(null)}
+              >
+                <Text as="p" variant="bodyMd">
+                  {feedbackMessage}
+                </Text>
+              </Banner>
+            )}
+
+            {isSaving && (
+              <Banner tone="info">
+                <Text as="p" variant="bodyMd">
+                  Saving countries…
+                </Text>
+              </Banner>
+            )}
+
+            {!hasPlan && (
+              <Banner tone="warning">
+                <Text as="p" variant="bodyMd">
+                  You need to select a subscription plan to use this feature.
+                </Text>
+              </Banner>
+            )}
+          </BlockStack>
+        )}
+
         <Layout>
           <Layout.Section>
             <BlockStack gap="400">
-            <Card>
-              <BlockStack gap="400">
-                {/* <Text as="h2" variant="headingMd">
-                  Country Selection
-                </Text> */}
-                
-                {/* Visual feedback for save operations */}
-                {feedbackMessage && (
-                  <Banner status={feedbackType} onDismiss={() => setFeedbackMessage(null)}>
-                    <Text as="p" variant="bodyMd">
-                      {feedbackMessage}
-                    </Text>
-                  </Banner>
-                )}
-                
-                {/* Loading indicator while saving */}
-                {fetcher.state === "submitting" && (
-                  <Banner status="info">
-                    <Text as="p" variant="bodyMd">
-                      Saving countries...
-                    </Text>
-                  </Banner>
-                )}
-                
-                {!hasPlan && (
-                  <Banner status="warning">
-                    <Text as="p" variant="bodyMd">
-                      You need to select a subscription plan to use this feature.
-                    </Text>
-                  </Banner>
-                )}
-                
-                {/* {planType === "free" && (
-                  <Banner status="info">
-                    <BlockStack gap="200">
-                      <Text as="p" variant="bodyMd">
-                        You are on the <strong>Essential</strong> plan which allows blocking up to 5 countries.
-                      </Text>
-                      {selectedCountries.length >= countryLimit && (
-                        <Text as="p" variant="bodyMd">
-                          You have reached your limit of {countryLimit} countries. Upgrade to the premium plan for unlimited country blocking.
+              <StatusOverview
+                selectedCount={selectedCountries.length}
+                countryLimit={countryLimit}
+                planType={planType}
+                hasPlan={hasPlan}
+                isSaving={isSaving}
+              />
+
+              <Card padding="0">
+                <Box padding="400" paddingBlockEnd="300">
+                  <InlineStack align="space-between" blockAlign="center" wrap gap="300">
+                    <InlineStack gap="300" blockAlign="center" wrap={false}>
+                      <Box
+                        background="bg-fill-info-secondary"
+                        padding="200"
+                        borderRadius="200"
+                      >
+                        <Icon source={GlobeIcon} tone="info" />
+                      </Box>
+                      <BlockStack gap="050">
+                        <Text as="h2" variant="headingMd">
+                          Select countries
                         </Text>
-                      )}
-                      <Button onClick={handleManagePricingClick} variant="primary">
-                        Upgrade to Premium
-                      </Button>
-                    </BlockStack>
-                  </Banner>
-                )} */}
-                
-                {/* {planType === "premium" && (
-                  <Banner status="success">
-                    <Text as="p" variant="bodyMd">
-                      You are on the <strong>Premium</strong> plan with unlimited country blocking.
-                    </Text>
-                  </Banner>
-                )} */}
-                
-                <div style={{ opacity: hasPlan ? 1 : 0.5 }}>
-                  <CountrySelector
-                    selectedCountries={selectedCountries}
-                    onChange={handleCountryChange}
-                    disabled={!hasPlan}
-                    countryLimit={countryLimit}
-                    limitReached={planType === "free" && selectedCountries.length >= countryLimit}
-                    planType={planType}
-                  />
-                  
-                  {selectedCountries.length > 0 && (
-                    <Text as="p" variant="bodySm" color="subdued">
-                      {selectedCountries.length} countries selected
-                      {planType === "free" && ` (${countryLimit - selectedCountries.length} remaining)`}
-                    </Text>
-                  )}
-                </div>
-              </BlockStack>
-            </Card>
-            <Card>
-              <BlockStack gap="500">
-                <div>
-                  <Text as="h2" variant="headingMd">
-                    Theme Integration
-                  </Text>
-                  <Text as="p" variant="bodySm" color="subdued" tone="subdued">
-                    Seamlessly integrate country blocking into your store theme
-                  </Text>
-                </div>
-                
-                <div style={{ 
-                  opacity: hasPlan ? 1 : 0.6,
-                  pointerEvents: hasPlan ? "auto" : "none"
-                }}>
-                  <BlockStack gap="400">
-                    {!hasPlan ? (
-                      <div style={{
-                        backgroundColor: "rgba(252, 232, 178, 0.3)",
-                        borderLeft: "3px solid #f59e0b",
-                        padding: "16px",
-                        borderRadius: "4px"
-                      }}>
-                        <BlockStack gap="200">
-                          <Text as="p" variant="bodyMd" tone="warning">
-                            <strong>Subscription Required</strong>
-                          </Text>
-                          <Text as="p" variant="bodySm" color="subdued">
-                            Select a subscription plan to unlock theme integration features
-                          </Text>
-                        </BlockStack>
-                      </div>
-                    ) : (
-                      <div style={{
-                        backgroundColor: "rgba(226, 232, 240, 0.4)",
-                        padding: "24px",
-                        borderRadius: "8px",
-                        border: "1px solid rgba(203, 213, 225, 0.5)"
-                      }}>
-                        <BlockStack gap="300">
-                          <div>
-                            <Text as="p" variant="bodyMd">
-                              <strong>Add to Your Theme</strong>
-                            </Text>
-                            <Text as="p" variant="bodySm" color="subdued">
-                              Configure the country blocker block directly from your Shopify theme editor
-                            </Text>
-                          </div>
-                          
-                          <Button onClick={handleEmbedClick} variant="primary" size="large" fullWidth>
-                            Open Theme Editor
-                          </Button>
-                          
-                          <Text as="p" variant="bodySm" color="subdued">
-                            Add the block to your published theme and customize its appearance in the theme editor.
-                          </Text>
-                        </BlockStack>
-                      </div>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          Expand a region, then check the countries you want to block
+                        </Text>
+                      </BlockStack>
+                    </InlineStack>
+                    {selectedCountries.length > 0 && (
+                      <Badge tone="info">
+                        {selectedCountries.length}
+                        {planType === "free" && countryLimit
+                          ? ` / ${countryLimit}`
+                          : ""}{" "}
+                        selected
+                      </Badge>
                     )}
-                  </BlockStack>
-                </div>
-              </BlockStack>
-            </Card>
+                  </InlineStack>
+                </Box>
+                <Divider />
+                <Box padding="400">
+                  <div style={{ opacity: hasPlan ? 1 : 0.5 }}>
+                    <CountrySelector
+                      selectedCountries={selectedCountries}
+                      onChange={handleCountryChange}
+                      disabled={!hasPlan}
+                      countryLimit={countryLimit}
+                      limitReached={planType === "free" && selectedCountries.length >= countryLimit}
+                      planType={planType}
+                    />
+                  </div>
+                </Box>
+              </Card>
             </BlockStack>
-            
+          </Layout.Section>
+
+          <Layout.Section variant="oneThird">
+            <BlockStack gap="400">
+              <ThemeIntegrationCard
+                hasPlan={hasPlan}
+                onEmbedClick={handleEmbedClick}
+              />
+              <HowItWorksCard />
+            </BlockStack>
           </Layout.Section>
         </Layout>
       </BlockStack>

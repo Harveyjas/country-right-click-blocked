@@ -6,16 +6,20 @@ import {
   Text,
   InlineStack,
   Tag,
-  Select,
   Banner,
   Spinner,
   Divider,
   Box,
   Checkbox,
   Collapsible,
+  Badge,
 } from "@shopify/polaris";
+import {
+  ChevronDownIcon,
+  ChevronUpIcon,
+  DeleteIcon,
+} from "@shopify/polaris-icons";
 import { useFetcher } from "@remix-run/react";
-import styles from "../routes/_index/styles.module.css";
 
 // Define continents and their countries
 const continents = {
@@ -549,7 +553,7 @@ export default function CountrySelector({
 
   if (error) {
     return (
-      <Banner status="critical">
+      <Banner tone="critical">
         <p>Error: {error}</p>
       </Banner>
     );
@@ -577,7 +581,7 @@ export default function CountrySelector({
   const renderPlanBanner = () => {
     if (!hasPlan) {
       return (
-        <Banner status="warning">
+        <Banner tone="warning">
           <Text as="p" variant="bodyMd">
             You need to select a subscription plan to use country blocking.
           </Text>
@@ -585,7 +589,7 @@ export default function CountrySelector({
       );
     } else if (isFreePlan) {
       return (
-        <Banner status="info">
+        <Banner tone="info">
           <Text as="p" variant="bodyMd">
             You are on the <strong>Essential Plan</strong>. You can block up to 5 countries.
           </Text>
@@ -607,187 +611,290 @@ export default function CountrySelector({
   return (
     <BlockStack gap="400">
       {loading ? (
-        <Spinner accessibilityLabel="Loading countries" size="large" />
+        <Box padding="800">
+          <InlineStack align="center" blockAlign="center">
+            <Spinner accessibilityLabel="Loading countries" size="large" />
+          </InlineStack>
+        </Box>
       ) : (
         <>
           {renderPlanBanner()}
           
           <div style={{ opacity: hasPlan ? 1 : 0.5 }}>
             <BlockStack gap="400">
-              <Text variant="headingMd" as="h3">Select Countries to Block</Text>
-
               {/* Quick Select Options */}
-              <Card padding="400">
-                <BlockStack gap="300">
-                  <Text variant="headingSm" as="h4">Quick Select</Text>
-                  <InlineStack gap="400">
+              <Box
+                background="bg-surface-secondary"
+                padding="300"
+                borderRadius="200"
+              >
+                <InlineStack align="space-between" blockAlign="center" wrap gap="300">
+                  <BlockStack gap="050">
+                    <Text variant="headingSm" as="h4">
+                      Quick select
+                    </Text>
+                    <Text variant="bodySm" as="p" tone="subdued">
+                      Apply or clear every country in one step
+                    </Text>
+                  </BlockStack>
+                  <InlineStack gap="200" wrap>
                     <Button
                       onClick={() => handleContinentToggle("Select All", true)}
                       disabled={disabled || limitReached || !hasPlan}
                       size="slim"
                       variant="primary"
                     >
-                      Select All Countries
+                      Select all
                     </Button>
                     <Button
                       onClick={handleClearAll}
                       disabled={disabled || selectedCountries.length === 0 || !hasPlan}
                       size="slim"
-                      variant="secondary"
+                      icon={DeleteIcon}
                     >
-                      Clear All
+                      Clear all
                     </Button>
                   </InlineStack>
-                </BlockStack>
-              </Card>
+                </InlineStack>
+              </Box>
 
               {/* Continent Checkboxes */}
-              <div style={{
-                maxHeight: '250px', // Show exactly 3 continents at a time
-                overflowY: 'auto',
-                overflowX: 'hidden',
-                border: '1px solid #e1e5e9',
-                borderRadius: '8px',
-                padding: '16px',
-                backgroundColor: '#ffffff',
-                scrollbarWidth: 'thin', // Firefox
-                scrollbarColor: '#c1c1c1 #f1f1f1' // Firefox
-              }}
-              className="custom-scrollbar" // For webkit browsers
-              >
-                <BlockStack gap="300">
-                  {Object.keys(continents).map(continentName => {
-                    const isFullySelected = isContinentFullySelected(continentName);
-                    const isPartiallySelected = isContinentPartiallySelected(continentName);
-                    const continentCountries = continents[continentName];
-                    const selectedCount = continentCountries.filter(code => selectedCountries.includes(code)).length;
-                    const isExpanded = expandedContinents[continentName];
+              <BlockStack gap="200">
+                <InlineStack align="space-between" blockAlign="center">
+                  <Text variant="headingSm" as="h4">
+                    Browse by region
+                  </Text>
+                  <Text variant="bodySm" as="p" tone="subdued">
+                    {countryLimit
+                      ? `${selectedCountries.length}/${countryLimit} selected`
+                      : `${selectedCountries.length} selected`}
+                  </Text>
+                </InlineStack>
 
-                    return (
-                      <Card key={continentName} padding="400">
-                        <BlockStack gap="300">
-                          <InlineStack gap="300" align="space-between">
-                            <Checkbox
-                              label={
-                                <span style={{
-                                  fontWeight: 'bold',
-                                  color: '#202223',
-                                  fontSize: '16px'
-                                }}>
-                                  {continentName} ({selectedCount}/{continentCountries.length})
-                                </span>
-                              }
-                              checked={isFullySelected}
-                              indeterminate={isPartiallySelected}
-                              onChange={(checked) => handleContinentToggle(continentName, checked)}
-                              disabled={disabled || !hasPlan}
-                            />
-                            <Button
-                              onClick={() => toggleContinentExpansion(continentName)}
-                              plain
-                              size="slim"
-                              accessibilityLabel={isExpanded ? `Collapse ${continentName}` : `Expand ${continentName}`}
-                            >
-                              {isExpanded ? "Collapse" : "Expand"}
-                            </Button>
-                          </InlineStack>
+                <div
+                  style={{
+                    maxHeight: "360px",
+                    overflowY: "auto",
+                    overflowX: "hidden",
+                    border: "1px solid var(--p-color-border, #e1e3e5)",
+                    borderRadius: "12px",
+                    backgroundColor: "var(--p-color-bg-surface, #ffffff)",
+                    scrollbarWidth: "thin",
+                    scrollbarColor: "#c1c1c1 #f1f1f1",
+                  }}
+                  className="custom-scrollbar"
+                >
+                  <BlockStack gap="0">
+                    {Object.keys(continents).map((continentName, index) => {
+                      const isFullySelected = isContinentFullySelected(continentName);
+                      const isPartiallySelected = isContinentPartiallySelected(continentName);
+                      const continentCountries = continents[continentName];
+                      const selectedCount = continentCountries.filter((code) =>
+                        selectedCountries.includes(code),
+                      ).length;
+                      const isExpanded = expandedContinents[continentName];
+                      const isLast = index === Object.keys(continents).length - 1;
 
-                          <Collapsible open={isExpanded}>
-                            <BlockStack gap="200">
-                              {continentCountries.map(countryCode => {
-                                const country = countries.find(c => c.value === countryCode);
-                                if (!country) return null;
+                      return (
+                        <div key={continentName}>
+                          <Box
+                            padding="300"
+                            background={isExpanded ? "bg-surface-secondary" : undefined}
+                          >
+                            <BlockStack gap="300">
+                              <InlineStack
+                                gap="300"
+                                align="space-between"
+                                blockAlign="center"
+                                wrap={false}
+                              >
+                                <Checkbox
+                                  label={
+                                    <InlineStack gap="200" blockAlign="center" wrap>
+                                      <Text as="span" variant="bodyMd" fontWeight="semibold">
+                                        {continentName}
+                                      </Text>
+                                      <Badge
+                                        tone={
+                                          selectedCount > 0
+                                            ? isFullySelected
+                                              ? "success"
+                                              : "info"
+                                            : undefined
+                                        }
+                                        size="small"
+                                      >
+                                        {selectedCount}/{continentCountries.length}
+                                      </Badge>
+                                    </InlineStack>
+                                  }
+                                  checked={isFullySelected}
+                                  indeterminate={isPartiallySelected}
+                                  onChange={(checked) =>
+                                    handleContinentToggle(continentName, checked)
+                                  }
+                                  disabled={disabled || !hasPlan}
+                                />
+                                <Button
+                                  onClick={() => toggleContinentExpansion(continentName)}
+                                  variant="plain"
+                                  size="slim"
+                                  icon={isExpanded ? ChevronUpIcon : ChevronDownIcon}
+                                  accessibilityLabel={
+                                    isExpanded
+                                      ? `Collapse ${continentName}`
+                                      : `Expand ${continentName}`
+                                  }
+                                >
+                                  {isExpanded ? "Hide" : "View"}
+                                </Button>
+                              </InlineStack>
 
-                                return (
-                                  <Checkbox
-                                    key={countryCode}
-                                    label={country.label}
-                                    checked={selectedCountries.includes(countryCode)}
-                                    onChange={(checked) => handleCountryToggle(countryCode, checked)}
-                                    disabled={disabled || !hasPlan || (limitReached && !selectedCountries.includes(countryCode))}
-                                  />
-                                );
-                              })}
+                              <Collapsible open={isExpanded}>
+                                <Box
+                                  padding="300"
+                                  paddingBlockStart="100"
+                                  background="bg-surface"
+                                  borderRadius="200"
+                                >
+                                  <div
+                                    style={{
+                                      display: "grid",
+                                      gridTemplateColumns:
+                                        "repeat(auto-fill, minmax(180px, 1fr))",
+                                      gap: "8px 16px",
+                                    }}
+                                  >
+                                    {continentCountries.map((countryCode) => {
+                                      const country = countries.find(
+                                        (c) => c.value === countryCode,
+                                      );
+                                      if (!country) return null;
+
+                                      return (
+                                        <Checkbox
+                                          key={countryCode}
+                                          label={country.label}
+                                          checked={selectedCountries.includes(countryCode)}
+                                          onChange={(checked) =>
+                                            handleCountryToggle(countryCode, checked)
+                                          }
+                                          disabled={
+                                            disabled ||
+                                            !hasPlan ||
+                                            (limitReached &&
+                                              !selectedCountries.includes(countryCode))
+                                          }
+                                        />
+                                      );
+                                    })}
+                                  </div>
+                                </Box>
+                              </Collapsible>
                             </BlockStack>
-                          </Collapsible>
-                        </BlockStack>
-                      </Card>
-                    );
-                  })}
-                </BlockStack>
-              </div>
-
-              {/* Selection Summary */}
-              <InlineStack gap="300" align="center">
-                {countryLimit && (
-                  <Text variant="bodySm" as="p" color="subdued">
-                    {selectedCountries.length}/{countryLimit} countries selected
-                  </Text>
-                )}
-                {!countryLimit && (
-                  <Text variant="bodySm" as="p" color="subdued">
-                    {selectedCountries.length} countries selected
-                  </Text>
-                )}
-              </InlineStack>
+                          </Box>
+                          {!isLast && <Divider />}
+                        </div>
+                      );
+                    })}
+                  </BlockStack>
+                </div>
+              </BlockStack>
             </BlockStack>
           </div>
 
-          {selectedCountries.length > 0 && (
-            <Card padding="400">
-              <BlockStack gap="400">
-                <Text variant="headingMd" as="h2">Blocked Countries</Text>
-                
-                {/* Display countries by continent */}
-                {Object.keys(countriesByContinent).map(continent => {
-                  const continentCountries = countriesByContinent[continent];
-                  if (continentCountries.length === 0) return null;
-                  
-                  // If we're not showing all countries, limit each continent to 5 countries
-                  const displayedCountries = showAllCountries 
-                    ? continentCountries 
-                    : continentCountries.slice(0, 5);
-                  
-                  return (
-                    <BlockStack key={continent} gap="300">
-                      <Box paddingBlockStart="200">
-                        <Text variant="headingSm" as="h3" fontWeight="semibold">
-                          {continent} ({continentCountries.length})
-                        </Text>
-                      </Box>
-                      <InlineStack gap="200" wrap>
-                        {displayedCountries.map(country => (
-                          <Tag 
-                            key={country.code} 
-                            onRemove={disabled || !hasPlan ? undefined : () => removeCountry(country.code)}
-                            disabled={disabled || !hasPlan}
-                          >
-                            {country.label}
-                          </Tag>
-                        ))}
-                        {!showAllCountries && continentCountries.length > 5 && (
-                          <Text variant="bodySm" as="span" color="subdued">
-                            +{continentCountries.length - 5} more
+          {selectedCountries.length > 0 ? (
+            <Card padding="0">
+              <Box padding="400" paddingBlockEnd="300">
+                <InlineStack align="space-between" blockAlign="center" wrap gap="200">
+                  <BlockStack gap="050">
+                    <Text variant="headingMd" as="h2">
+                      Blocked countries
+                    </Text>
+                    <Text variant="bodySm" as="p" tone="subdued">
+                      Remove a country anytime — changes save automatically
+                    </Text>
+                  </BlockStack>
+                  <Badge tone="info">{totalCountries} active</Badge>
+                </InlineStack>
+              </Box>
+              <Divider />
+              <Box padding="400">
+                <BlockStack gap="400">
+                  {Object.keys(countriesByContinent).map((continent) => {
+                    const continentCountries = countriesByContinent[continent];
+                    if (continentCountries.length === 0) return null;
+
+                    const displayedCountries = showAllCountries
+                      ? continentCountries
+                      : continentCountries.slice(0, 5);
+
+                    return (
+                      <BlockStack key={continent} gap="200">
+                        <InlineStack gap="200" blockAlign="center">
+                          <Text variant="headingSm" as="h3" fontWeight="semibold">
+                            {continent}
                           </Text>
-                        )}
-                      </InlineStack>
-                      {continent !== "Oceania" && <Divider />}
-                    </BlockStack>
-                  );
-                })}
-                
-                {/* Show "See All" button if needed */}
-                {shouldShowMore && (
-                  <Button 
-                    onClick={() => setShowAllCountries(!showAllCountries)} 
-                    plain
-                    size="slim"
-                  >
-                    {showAllCountries ? "Show Less" : "Show All Countries"}
-                  </Button>
-                )}
-              </BlockStack>
+                          <Badge size="small">{continentCountries.length}</Badge>
+                        </InlineStack>
+                        <InlineStack gap="200" wrap>
+                          {displayedCountries.map((country) => (
+                            <Tag
+                              key={country.code}
+                              onRemove={
+                                disabled || !hasPlan
+                                  ? undefined
+                                  : () => removeCountry(country.code)
+                              }
+                              disabled={disabled || !hasPlan}
+                            >
+                              {country.label}
+                            </Tag>
+                          ))}
+                          {!showAllCountries && continentCountries.length > 5 && (
+                            <Box paddingInline="100" paddingBlock="050">
+                              <Text variant="bodySm" as="span" tone="subdued">
+                                +{continentCountries.length - 5} more
+                              </Text>
+                            </Box>
+                          )}
+                        </InlineStack>
+                      </BlockStack>
+                    );
+                  })}
+
+                  {shouldShowMore && (
+                    <InlineStack align="start">
+                      <Button
+                        onClick={() => setShowAllCountries(!showAllCountries)}
+                        variant="plain"
+                        size="slim"
+                      >
+                        {showAllCountries ? "Show less" : "Show all countries"}
+                      </Button>
+                    </InlineStack>
+                  )}
+                </BlockStack>
+              </Box>
             </Card>
+          ) : (
+            !loading &&
+            hasPlan && (
+              <Box
+                background="bg-surface-secondary"
+                padding="500"
+                borderRadius="200"
+              >
+                <BlockStack gap="200" inlineAlign="center">
+                  <Text as="p" variant="bodyMd" fontWeight="semibold" alignment="center">
+                    No countries blocked yet
+                  </Text>
+                  <Text as="p" variant="bodySm" tone="subdued" alignment="center">
+                    Expand a region above and select the countries you want to restrict.
+                  </Text>
+                </BlockStack>
+              </Box>
+            )
           )}
         </>
       )}

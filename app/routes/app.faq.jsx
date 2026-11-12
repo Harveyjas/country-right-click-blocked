@@ -10,9 +10,10 @@ export const loader = async ({ request }) => {
 export default function FAQ() {
   return (
     <Page
-      title="Frequently asked questions"
+      title="Help"
+      subtitle="Answers to common setup and feature questions."
       backAction={{
-        content: "Back to Dashboard",
+        content: "Dashboard",
         url: "/app",
       }}
     >

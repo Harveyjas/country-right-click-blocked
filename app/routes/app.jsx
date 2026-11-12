@@ -19,13 +19,15 @@ export default function App() {
   return (
     <AppProvider isEmbeddedApp apiKey={apiKey}>
       <NavMenu>
-        <Link to="/app">Home</Link>
-        <Link to="/app/country-blocker">Countries</Link>
-        <Link to="/app/redirection-rules">Redirection</Link>
-        <Link to="/app/shortcuts">Shortcuts</Link>
+        <Link to="/app" rel="home">
+          Dashboard
+        </Link>
+        <Link to="/app/country-blocker">Block countries</Link>
+        <Link to="/app/redirection-rules">Geo redirects</Link>
+        <Link to="/app/shortcuts">Content protection</Link>
         {/* <Link to="/app/botblocker">Bot Blocker</Link> */}
-        <Link to="/app/faq">FAQ</Link>
-        <Link to="/app/privacy-policy">Privacy Policy</Link>
+        <Link to="/app/faq">Help</Link>
+        <Link to="/app/privacy-policy">Privacy</Link>
       </NavMenu>
       <Outlet />
     </AppProvider>
