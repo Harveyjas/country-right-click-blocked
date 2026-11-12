@@ -103,7 +103,7 @@ export const loader = async ({ request }) => {
       }
     }
 
-    return json({ isEnabled, shopDomain, hasPlan, planType });
+    return json({ isEnabled, shopDomain, apiKey: process.env.SHOPIFY_API_KEY || "", hasPlan, planType });
   } catch (error) {
     console.error("Error in loader:", error);
     return json({ 
@@ -243,7 +243,7 @@ export const action = async ({ request }) => {
 };
 
 export default function Shortcuts() {
-  const { isEnabled, error, shopDomain, hasPlan, planType } = useLoaderData();
+  const { isEnabled, error, shopDomain, apiKey, hasPlan, planType } = useLoaderData();
   const [enabled, setEnabled] = useState(isEnabled);
   const [saveStatus, setSaveStatus] = useState({ success: false, error: null });
   
@@ -274,9 +274,9 @@ export default function Shortcuts() {
     }
   }, [actionData, navigation.state]);
   
-  // Clear save status after a few seconds
+  // Success can clear automatically; errors remain visible until dismissed.
   useEffect(() => {
-    if (saveStatus.success || saveStatus.error) {
+    if (saveStatus.success) {
       const timer = setTimeout(() => {
         setSaveStatus({ success: false, error: null });
       }, 3000);
@@ -326,7 +326,7 @@ export default function Shortcuts() {
       
       // Construct the URL using admin.shopify.com format
 
-      const embedUrl = `https://admin.shopify.com/store/${shopName}/themes/current/editor?context=apps&template=index&activateAppId=d7c3a32f-9572-4caf-aadd-ab0a618f3c30/disable_shortcuts`;
+      const embedUrl = `https://admin.shopify.com/store/${shopName}/themes/current/editor?context=apps&template=index&activateAppId=${apiKey}/disable_shortcuts`;
       console.log('Opening URL:', embedUrl);
       console.log('shopNameeeee',shopName)
       
@@ -356,11 +356,12 @@ export default function Shortcuts() {
     } catch (error) {
       console.error('Error opening pricing page:', error);
     }
-  }, [shopDomain]);
+  }, [shopDomain, apiKey]);
   
   return (
     <Page
-      title="Keyboard Shortcuts Blocker"
+      title="Keyboard shortcuts"
+      backAction={{ content: "Back to overview", url: "/app" }}
       primaryAction={{
         content: "Manage Subscription",
         onAction: handleManagePricingClick,
@@ -452,8 +453,7 @@ export default function Shortcuts() {
                 </div>
 
                 <Text as="p" variant="bodyMd">
-                This feature helps you enhance security, reduce content copying, and limit access to developer tools.
-                
+                  Disabling shortcuts does not prevent copying or guarantee security. It can also interfere with browser features and assistive technology.
                 </Text>
                 
                 {enabled && isPremiumPlan && (

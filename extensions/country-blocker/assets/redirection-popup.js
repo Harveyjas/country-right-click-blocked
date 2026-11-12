@@ -7,6 +7,7 @@
   class RedirectionPopup {
     constructor() {
       this.popup = document.getElementById('redirection-popup-overlay');
+      this.openPopupBtn = document.getElementById('open-redirection-popup');
       this.modal = document.getElementById('redirection-popup-modal');
       this.closeBtn = document.getElementById('popup-close-btn');
       this.redirectBtn = document.getElementById('redirect-btn');
@@ -38,6 +39,7 @@
       const type = contentDiv?.getAttribute('data-popup-type');
 
       this.closeBtn?.addEventListener('click', () => this.closePopup());
+      this.openPopupBtn?.addEventListener('click', () => this.showPopup());
       this.redirectBtn?.addEventListener('click', () => this.handleRedirect());
       this.continueBtn?.addEventListener('click', () => this.closePopup());
       
@@ -282,16 +284,12 @@
     }
 
     checkAutoShowPopup() {
+      // Automatic redirects are only used when the merchant enables them.
+      // The selector itself is never opened without a visitor action.
       const isDismissed = sessionStorage.getItem(STORAGE_KEY);
       const hasCookie = this.getCookie(COOKIE_NAME);
-      const showOnLoad = this.popup?.getAttribute('data-show-on-load') === 'true';
-      
-      if (!isDismissed && !hasCookie && showOnLoad) {
-        if (this.enableAutoRedirect) {
-          this.handleAutoRedirect();
-        } else {
-          setTimeout(() => this.showPopup(), 500);
-        }
+      if (this.enableAutoRedirect && !isDismissed && !hasCookie) {
+        this.handleAutoRedirect();
       }
     }
 
@@ -299,7 +297,7 @@
       const enableGeo = this.popup?.getAttribute('data-enable-geolocation') === 'true';
       
       if (enableGeo && !this.enableAutoRedirect) {
-        this.detectUserCountry();
+        this.setAutoDetectedCountry(this.popup?.dataset.country);
       }
     }
 
@@ -307,15 +305,7 @@
       this.setCookie(COOKIE_NAME, 'true', COOKIE_DAYS);
       sessionStorage.setItem(STORAGE_KEY, 'true');
 
-      fetch('https://api.country.is/')
-        .then(response => response.json())
-        .then(data => {
-          const userCountry = data.country;
-          this.performAutoRedirect(userCountry);
-        })
-        .catch(error => {
-          console.error('Error detecting country for auto-redirect:', error);
-        });
+      this.performAutoRedirect(this.popup?.dataset.country);
     }
 
     performAutoRedirect(countryCode) {
@@ -354,16 +344,6 @@
         console.error('Error parsing redirect rules:', error);
       }
       return {};
-    }
-
-    detectUserCountry() {
-      fetch('https://api.country.is/')
-        .then(response => response.json())
-        .then(data => {
-          const userCountry = data.country;
-          this.setAutoDetectedCountry(userCountry);
-        })
-        .catch(error => console.error('Error detecting country:', error));
     }
 
     setAutoDetectedCountry(countryCode) {
@@ -839,6 +819,7 @@
       if (this.popup) {
         this.popup.style.display = 'none';
         sessionStorage.setItem(STORAGE_KEY, 'true');
+        this.openPopupBtn?.focus();
       }
     }
   }

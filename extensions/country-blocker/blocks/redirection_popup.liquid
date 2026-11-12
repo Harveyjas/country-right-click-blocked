@@ -50,9 +50,12 @@
   });
 </script>
 
-<!-- Redirection Popup Modal -->
-<div id="redirection-popup-overlay" class="redirection-popup-overlay" style="display: none;" data-show-on-load="true" data-enable-geolocation="true" data-enable-auto-redirect="{{ block.settings.enable_auto_redirect }}">
-  <div id="redirection-popup-modal" class="redirection-popup-modal">
+<!-- Opening the selector requires an explicit storefront visitor action. -->
+<button type="button" id="open-redirection-popup" class="redirection-popup-trigger">
+  {{ block.settings.trigger_button_text }}
+</button>
+<div id="redirection-popup-overlay" class="redirection-popup-overlay" style="display: none;" data-show-on-load="false" data-country="{{ localization.country.iso_code }}" data-enable-geolocation="true" data-enable-auto-redirect="{{ block.settings.enable_auto_redirect }}">
+  <div id="redirection-popup-modal" class="redirection-popup-modal" role="dialog" aria-modal="true" aria-labelledby="popup-title">
     <div class="redirection-popup-header">
       <h2 id="popup-title">{{ block.settings.popup_title }}</h2>
       <button type="button" class="redirection-popup-close" id="popup-close-btn" aria-label="Close popup">
@@ -286,6 +289,12 @@
           "label": "Button Grid"
         }
       ]
+    },
+    {
+      "type": "text",
+      "id": "trigger_button_text",
+      "label": "Country selector button text",
+      "default": "Choose country or region"
     },
     {
       "type": "text",

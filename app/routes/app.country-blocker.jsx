@@ -105,7 +105,7 @@ export const loader = async ({ request }) => {
       `#graphql
         query {
           shop {
-            metafield(namespace: "countries", key: "allowed") {
+            metafield(namespace: "countryselector", key: "selected-country") {
               value
             }
           }
@@ -129,6 +129,7 @@ export const loader = async ({ request }) => {
   
   return json({
     shop,
+    apiKey: process.env.SHOPIFY_API_KEY || "",
     hasPlan,
     planType,
     selectedCountries,
@@ -191,8 +192,8 @@ export const action = async ({ request }) => {
         metafields: [
           {
             ownerId: shopId,
-            namespace: "countries",
-            key: "allowed",
+            namespace: "countryselector",
+            key: "selected-country",
             value: JSON.stringify(countries),
             type: "json",
           },
@@ -231,7 +232,7 @@ export const action = async ({ request }) => {
 };
 
 export default function Index() {
-  const { shop, hasPlan, planType, selectedCountries: initialCountries, countryLimit } = useLoaderData();
+  const { shop, apiKey, hasPlan, planType, selectedCountries: initialCountries, countryLimit } = useLoaderData();
   const submit = useSubmit();
   const fetcher = useFetcher();
   const [selectedCountries, setSelectedCountries] = useState(initialCountries || []);
@@ -252,12 +253,6 @@ export default function Index() {
         setFeedbackType("critical");
       }
       
-      // Clear feedback after 4 seconds
-      const timer = setTimeout(() => {
-        setFeedbackMessage(null);
-      }, 4000);
-      
-      return () => clearTimeout(timer);
     }
   }, [fetcher.state, fetcher.data]);
 
@@ -302,7 +297,7 @@ export default function Index() {
       console.log('shopppppp',shopName)
       
       // Construct the URL using admin.shopify.com format d7c3a32f-9572-4caf-aadd-ab0a618f3c30
-      const embedUrl = `https://admin.shopify.com/store/${shopName}/themes/current/editor?context=apps&template=index&activateAppId=d7c3a32f-9572-4caf-aadd-ab0a618f3c30/country_blocker`;
+      const embedUrl = `https://admin.shopify.com/store/${shopName}/themes/current/editor?context=apps&template=index&activateAppId=${apiKey}/country_blocker`;
       console.log('Opening URL:', embedUrl);
 
       // Open in a new tab
@@ -310,7 +305,7 @@ export default function Index() {
     } catch (error) {
       console.error('Error opening theme editor:', error);
     }
-  }, [shop]);
+  }, [shop, apiKey]);
   
   const handleManagePricingClick = useCallback(() => {
     try {
@@ -335,7 +330,7 @@ export default function Index() {
   }, [shop]);
 
   return (
-    <Page title="Country Restrictions Dashboard">
+    <Page title="Country blocking" backAction={{ content: "Back to overview", url: "/app" }}>
       <BlockStack gap="500">
         <Layout>
           <Layout.Section>
@@ -348,7 +343,7 @@ export default function Index() {
                 
                 {/* Visual feedback for save operations */}
                 {feedbackMessage && (
-                  <Banner status={feedbackType}>
+                  <Banner status={feedbackType} onDismiss={() => setFeedbackMessage(null)}>
                     <Text as="p" variant="bodyMd">
                       {feedbackMessage}
                     </Text>
@@ -471,7 +466,7 @@ export default function Index() {
                           </Button>
                           
                           <Text as="p" variant="bodySm" color="subdued">
-                            💡 Tip: You can add the country blocker block to any theme section and customize its appearance
+                            Add the block to your published theme and customize its appearance in the theme editor.
                           </Text>
                         </BlockStack>
                       </div>

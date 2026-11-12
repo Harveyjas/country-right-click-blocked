@@ -9,53 +9,20 @@ import { json } from "@remix-run/node";
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
 export const loader = async ({ request }) => {
-  const { session } = await authenticate.admin(request);
-  
-  // Get shop data from session
-  const shop = session.shop;
-
-  return json({ 
-    apiKey: process.env.SHOPIFY_API_KEY || "",
-    shop
-  });
+  await authenticate.admin(request);
+  return json({ apiKey: process.env.SHOPIFY_API_KEY || "" });
 };
 
 export default function App() {
-  const { apiKey, shop } = useLoaderData();
-
-  const handleManagePricingClick = () => {
-    try {
-      // Use the shop from loader data
-      if (!shop) {
-        console.error('Shop information not available');
-        return;
-      }
-
-      // Extract the shop name without .myshopify.com
-      const shopName = shop.replace('.myshopify.com', '');
-      
-      // Construct the URL for the pricing plans page
-      const pricingUrl = `https://admin.shopify.com/store/${shopName}/charges/insta-18/pricing_plans`;
-      console.log('Opening pricing URL:', pricingUrl);
-
-      // Open in a new tab
-      window.open(pricingUrl, '_blank');
-    } catch (error) {
-      console.error('Error opening pricing page:', error);
-    }
-  };
+  const { apiKey } = useLoaderData();
 
   return (
     <AppProvider isEmbeddedApp apiKey={apiKey}>
       <NavMenu>
-        <Link to="/app" rel="home">
-          Home
-        </Link>
-        <Link to="/app/country-blocker">
-          Country Blocker
-        </Link>
-        <Link to="/app/redirection-rules">Redirection Rules</Link>
-        <Link to="/app/shortcuts">Disable Keyboard Shortcuts</Link>
+        <Link to="/app">Home</Link>
+        <Link to="/app/country-blocker">Countries</Link>
+        <Link to="/app/redirection-rules">Redirection</Link>
+        <Link to="/app/shortcuts">Shortcuts</Link>
         {/* <Link to="/app/botblocker">Bot Blocker</Link> */}
         <Link to="/app/faq">FAQ</Link>
         <Link to="/app/privacy-policy">Privacy Policy</Link>

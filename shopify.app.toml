@@ -1,7 +1,7 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "a1ab97a46b1da2e22ae82de7c621e32a"
-name = "Rabbi Country Blocker"
+name = "Geoshield"
 handle = "insta-18"
 application_url = "https://currency-switcher.onrender.com"
 embedded = true
@@ -10,7 +10,7 @@ embedded = true
 automatically_update_urls_on_dev = true
 
 [webhooks]
-api_version = "2024-01"
+api_version = "2026-10"
 
   [[webhooks.subscriptions]]
   uri = "/webhooks/compliance"
@@ -18,10 +18,10 @@ api_version = "2024-01"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "read_products,write_products,read_markets,write_markets,read_shipping,write_shipping,read_locales"
+scopes = "read_markets,read_shipping"
 
 [auth]
-redirect_urls = ["https://currency-switcher.onrender.com", "https://currency-switcher.onrender.com", "https://currency-switcher.onrender.com"]
+redirect_urls = ["https://currency-switcher.onrender.com/auth/callback"]
 
 [pos]
 embedded = false

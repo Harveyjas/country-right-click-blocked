@@ -1,5 +1,5 @@
 <link rel="stylesheet" href="{{ 'Country_bloocker.css' | asset_url }}">
-<script src="{{ 'Country_blocker.js' | asset_url }}" async></script>
+<script src="{{ 'Country_blocker.js' | asset_url }}" defer></script>
 {% comment %} <input
   type="hidden"
   id="country_blocker"
@@ -7,7 +7,7 @@
   value="{{ shop.metafields.countryselector.selected-country }}"
 > {% endcomment %}
 <!-- Hidden element to store country codes -->
-<div id="blocked-countries" data-countries='{{ shop.metafields.countryselector.selected-country }}'></div>
+<div id="blocked-countries" data-country="{{ localization.country.iso_code }}" data-countries='{{ shop.metafields.countryselector.selected-country | default: "[]" | escape }}'></div>
 <div id="blocker-div" style="display: none; background-color: {{ block.settings.background_color }};">
     <div id="blocker-content" style="background-color: {{ block.settings.text_block_color }};">
       <h2 style="color: {{ block.settings.text_color }};">{{ block.settings.blocker_message }}</h2>

@@ -243,9 +243,9 @@ export default function BotBlocker() {
     }
   }, [actionData, navigation.state]);
   
-  // Clear save status after a few seconds
+  // Success can clear automatically; errors remain visible until dismissed.
   useEffect(() => {
-    if (saveStatus.success || saveStatus.error) {
+    if (saveStatus.success) {
       const timer = setTimeout(() => {
         setSaveStatus({ success: false, error: null });
       }, 3000);
@@ -311,6 +311,7 @@ export default function BotBlocker() {
   return (
     <Page
       title="Bot Blocker"
+      backAction={{ content: "Back to overview", url: "/app" }}
       primaryAction={{
         content: "Manage Subscription",
         onAction: handleManagePricingClick,

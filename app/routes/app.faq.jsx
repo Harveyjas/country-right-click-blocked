@@ -10,7 +10,7 @@ export const loader = async ({ request }) => {
 export default function FAQ() {
   return (
     <Page
-      title="Frequently Asked Questions"
+      title="Frequently asked questions"
       backAction={{
         content: "Back to Dashboard",
         url: "/app",
@@ -35,14 +35,14 @@ export default function FAQ() {
                   How does the country blocking work?
                 </Text>
                 <Text as="p" variant="bodyMd">
-                  The app uses IP geolocation to detect a customer's country. When a customer visits your store, the app checks their location against your allowed/blocked countries list and either allows or denies access accordingly.
+                  Country blocking compares your selected countries with the country Shopify provides for the visitor's storefront localization. VPNs or proxy services may affect the country Shopify detects.
                 </Text>
 
                 <Text as="h3" variant="headingSm">
                   Can I change my country restrictions at any time?
                 </Text>
                 <Text as="p" variant="bodyMd">
-                  Yes, you can update your country restrictions at any time through the app's dashboard. Changes take effect immediately after saving.
+                  Yes. Country settings save when you change them. The storefront behavior also depends on the corresponding theme block being enabled in the published theme.
                 </Text>
               </BlockStack>
             </BlockStack>
@@ -58,14 +58,14 @@ export default function FAQ() {
                   How accurate is the country detection?
                 </Text>
                 <Text as="p" variant="bodyMd">
-                  Country detection is based on IP geolocation, which is generally very accurate. However, some users may be using VPNs or proxy servers that could affect the accuracy of location detection.
+                  The app uses the country Shopify provides for storefront localization. VPNs, proxies, and a visitor's localization settings can affect that value.
                 </Text>
 
                 <Text as="h3" variant="headingSm">
                   Does the app affect my store's performance?
                 </Text>
                 <Text as="p" variant="bodyMd">
-                  The app is designed to be lightweight and efficient. The country check is performed quickly and should not significantly impact your store's loading time.
+                  Theme blocks run on pages where you add them. You can remove a block in the theme editor if it affects your storefront or is no longer needed.
                 </Text>
               </BlockStack>
             </BlockStack>
@@ -81,7 +81,7 @@ export default function FAQ() {
                   How can I get help if I have issues?
                 </Text>
                 <Text as="p" variant="bodyMd">
-                  If you encounter any issues or have questions, please contact our support team through the Shopify Partner dashboard or email us at ventosupprt@gmail.com.
+                  If you encounter an issue, contact support at ventosupprt@gmail.com and include the affected feature and steps to reproduce it.
                 </Text>
               </BlockStack>
             </BlockStack>

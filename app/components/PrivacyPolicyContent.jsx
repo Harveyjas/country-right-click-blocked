@@ -1,4 +1,4 @@
-const LAST_UPDATED = "July 11, 2026";
+const LAST_UPDATED = "November 12, 2026";
 
 export function PrivacyPolicyContent() {
   return (
@@ -6,64 +6,63 @@ export function PrivacyPolicyContent() {
       <section>
         <h2>Introduction</h2>
         <p>
-          This Privacy Policy describes how the Country Blocker app ("we", "our", or "us")
-          collects, uses, and protects your data. We are committed to protecting your privacy
-          and ensuring the security of your personal information.
+          This policy describes the information the Country Blocker app ("we", "our", or "us")
+          handles when a merchant installs and uses the app.
         </p>
       </section>
 
       <section>
         <h2>Data Collection and Use</h2>
         <h3>What data we collect</h3>
-        <p>We collect and process the following types of data:</p>
+        <p>The app handles:</p>
         <ul>
-          <li>Store information (shop domain, shop ID)</li>
-          <li>Country restrictions settings</li>
-          <li>Customer IP addresses (for geolocation purposes only)</li>
-          <li>App usage statistics</li>
+          <li>Shopify authentication session data, including the shop domain and the authorized staff member's Shopify-provided account details and tokens.</li>
+          <li>App settings, such as selected countries, redirection rules, and shortcut settings. These are stored as shop metafields in Shopify.</li>
+          <li>The country Shopify provides through storefront localization. The app does not send shopper IP addresses to its server for geolocation.</li>
         </ul>
+
+        <p>
+          The redirection selector can load country flag images from raw.githubusercontent.com
+          and flagcdn.com. Those providers receive the browser request, which can include the
+          visitor's IP address and standard request information. The selector does not require
+          these images to choose a country.
+        </p>
 
         <h3>How we use your data</h3>
         <p>We use the collected data to:</p>
         <ul>
           <li>Provide and maintain the country blocking functionality</li>
-          <li>Improve our app's performance and user experience</li>
-          <li>Comply with legal obligations</li>
-          <li>Respond to your support requests</li>
+          <li>Authenticate the merchant and operate the app's settings</li>
+          <li>Respond to support requests</li>
+          <li>Meet applicable legal obligations</li>
         </ul>
       </section>
 
       <section>
         <h2>Data Storage and Security</h2>
         <p>
-          We store your data securely using industry-standard encryption and security measures.
-          Your data is stored on Shopify's infrastructure and is protected by their security
-          protocols.
+          Authentication sessions are stored in the app's configured session database. App
+          settings are stored in Shopify shop metafields. Access to these records is limited to
+          operating and supporting the app.
         </p>
       </section>
 
       <section>
         <h2>GDPR Compliance</h2>
         <p>
-          We comply with the General Data Protection Regulation (GDPR) and provide the following
-          rights to our users:
+          The app does not maintain customer profiles or customer IP address records. Merchants
+          can request access to or deletion of app-related information by contacting us. Shopify
+          privacy webhooks are configured for customer data requests, customer redaction, and shop
+          redaction.
         </p>
-        <ul>
-          <li>Right to access your personal data</li>
-          <li>Right to rectification of your personal data</li>
-          <li>Right to erasure of your personal data</li>
-          <li>Right to restrict processing of your personal data</li>
-          <li>Right to data portability</li>
-          <li>Right to object to processing of your personal data</li>
-        </ul>
       </section>
 
       <section>
         <h2>Data Retention</h2>
         <p>
-          We retain your data only for as long as necessary to provide our services and comply
-          with legal obligations. When you uninstall the app, we will delete your data within
-          30 days.
+          Authentication sessions are removed when Shopify sends the app uninstalled webhook.
+          Shop settings are stored in Shopify metafields and may remain after uninstalling the
+          app. Contact us if you need help removing app-related settings.
         </p>
       </section>
 

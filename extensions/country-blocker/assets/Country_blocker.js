@@ -1,21 +1,25 @@
-const blockedCountriesElement = document.getElementById("blocked-countries");
-  const blockedCountries = JSON.parse(blockedCountriesElement.getAttribute("data-countries"));
+(() => {
+  const initializeCountryBlocker = () => {
+    const countriesElement = document.getElementById("blocked-countries");
+    const blocker = document.getElementById("blocker-div");
+    if (!countriesElement || !blocker) return;
 
-  // Fetch user's country from API
-  fetch("https://api.country.is/")
-    .then(response => response.json()) // Convert response to JSON
-    .then(data => {
-      const userCountry = data.country; // Extract user's country code
+    let blockedCountries = [];
+    try {
+      const value = JSON.parse(countriesElement.dataset.countries || "[]");
+      blockedCountries = Array.isArray(value) ? value : [];
+    } catch {
+      return;
+    }
 
-      console.log('Blocked Countries:', blockedCountries);
-      console.log('User Country:', userCountry);
+    if (blockedCountries.includes(countriesElement.dataset.country)) {
+      blocker.style.display = "flex";
+    }
+  };
 
-      // Check if user's country is in the blocked list
-      if (blockedCountries.includes(userCountry)) {
-        document.getElementById("blocker-div").style.display = "flex"; // Show blocker div if blocked
-        console.log("User is blocked - Blocker visible");
-      } else {
-        console.log("Access allowed - Blocker remains hidden");
-      }
-    })
-    .catch(error => console.error("Error fetching country data:", error));
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initializeCountryBlocker, { once: true });
+  } else {
+    initializeCountryBlocker();
+  }
+})();

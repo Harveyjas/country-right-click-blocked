@@ -427,7 +427,7 @@ export const loader = async ({ request }) => {
     
     const markets = Object.values(marketsMap);
 
-    return json({ redirectionRules, markets, shop });
+    return json({ redirectionRules, markets, shop, apiKey: process.env.SHOPIFY_API_KEY || "" });
   } catch (error) {
     console.error("Loader Error:", error);
     return json({ redirectionRules: [], markets: [], shop: null });
@@ -742,7 +742,7 @@ function DeleteConfirmationModal({ isOpen, onClose, onConfirm, rule }) {
             </Box>
           </BlockStack>
           <Text as="p" variant="bodySm" tone="subdued">
-            💡 Tip: You can recreate this rule later if needed.
+            You can create this rule again later if needed.
           </Text>
         </BlockStack>
       </Modal.Section>
@@ -967,7 +967,7 @@ function EditRedirectionModal({ isOpen, onClose, onSave, rule, allRules = [] }) 
 }
 
 export default function RedirectionRules() {
-  const { redirectionRules: initialRules, markets: initialMarkets, shop } = useLoaderData();
+  const { redirectionRules: initialRules, markets: initialMarkets, shop, apiKey } = useLoaderData();
   const [redirections, setRedirections] = useState([]);
   const [markets, setMarkets] = useState([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -1005,13 +1005,8 @@ export default function RedirectionRules() {
         setBannerError(data.error || 'Failed to save redirection rules');
       }
       
-      setTimeout(() => {
-        setBannerMessage('');
-        setBannerError('');
-      }, 3000);
-    } catch (error) {
+    } catch {
       setBannerError('Error saving redirection rules');
-      setTimeout(() => setBannerError(''), 3000);
     }
   };
 
@@ -1113,7 +1108,7 @@ export default function RedirectionRules() {
   ]);
 
   return (
-    <Page title="Redirection Rules" fullWidth>
+    <Page title="Redirection rules" backAction={{ content: "Back to overview", url: "/app" }} fullWidth>
       <BlockStack gap="800">
         {bannerMessage && (
           <Banner title="Success" onDismiss={() => setBannerMessage('')} tone="success">
@@ -1199,7 +1194,7 @@ export default function RedirectionRules() {
                   >
                     <BlockStack gap="200">
                       <Text as="h2" variant="headingMd">
-                        🌍 Market Data
+                        Market data
                       </Text>
                       <Text as="p" variant="bodySm" tone="subdued">
                         View all active markets and their associated countries
@@ -1268,7 +1263,7 @@ export default function RedirectionRules() {
                                 return;
                               }
                               const shopName = shop.replace('.myshopify.com', '');
-                              const embedUrl = `https://admin.shopify.com/store/${shopName}/themes/current/editor?context=apps&template=index&activateAppId=d7c3a32f-9572-4caf-aadd-ab0a618f3c30/redirection_popup`;
+                              const embedUrl = `https://admin.shopify.com/store/${shopName}/themes/current/editor?context=apps&template=index&activateAppId=${apiKey}/redirection_popup`;
                               window.open(embedUrl, '_blank');
                             } catch (error) {
                               console.error('Error opening theme editor:', error);
@@ -1278,7 +1273,7 @@ export default function RedirectionRules() {
                           </Button>
                           
                           <Text as="p" variant="bodySm" color="subdued">
-                            💡 Tip: You can add the country Pop-up to any theme section and customize its appearance
+                            Add the country selector to your published theme and customize its appearance in the theme editor.
                           </Text>
                         </BlockStack>
                       </div>
