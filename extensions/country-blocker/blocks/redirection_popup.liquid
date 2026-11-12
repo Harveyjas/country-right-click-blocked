@@ -1,5 +1,6 @@
 <link rel="stylesheet" href="{{ 'redirection-popup.css' | asset_url }}">
 <script src="{{ 'country_data_json.js' | asset_url }}"></script>
+<script src="{{ 'country-detection.js' | asset_url }}" defer></script>
 <script src="{{ 'redirection-popup.js' | asset_url }}" defer></script>
 <script>
   const territoryFlagMap = {
@@ -50,11 +51,7 @@
   });
 </script>
 
-<!-- Opening the selector requires an explicit storefront visitor action. -->
-<button type="button" id="open-redirection-popup" class="redirection-popup-trigger">
-  {{ block.settings.trigger_button_text }}
-</button>
-<div id="redirection-popup-overlay" class="redirection-popup-overlay" style="display: none;" data-show-on-load="false" data-country="{{ localization.country.iso_code }}" data-enable-geolocation="true" data-enable-auto-redirect="{{ block.settings.enable_auto_redirect }}">
+<div id="redirection-popup-overlay" class="redirection-popup-overlay" style="display: none;" data-show-on-load="true" data-country="{{ localization.country.iso_code }}" data-enable-geolocation="true">
   <div id="redirection-popup-modal" class="redirection-popup-modal" role="dialog" aria-modal="true" aria-labelledby="popup-title">
     <div class="redirection-popup-header">
       <h2 id="popup-title">{{ block.settings.popup_title }}</h2>
@@ -239,8 +236,7 @@
     "overlay_bg_color": "{{ block.settings.overlay_bg_color }}",
     "overlay_opacity": {{ block.settings.overlay_opacity }},
     "button_bg_color": "{{ block.settings.button_bg_color }}",
-    "button_text_color": "{{ block.settings.button_text_color }}",
-    "enable_auto_redirect": {{ block.settings.enable_auto_redirect | json }}
+    "button_text_color": "{{ block.settings.button_text_color }}"
   }
 </script>
 
@@ -249,17 +245,6 @@
   "name": "Redirection Popup",
   "target": "body",
   "settings": [
-    {
-      "type": "header",
-      "content": "Auto Redirect"
-    },
-    {
-      "type": "checkbox",
-      "id": "enable_auto_redirect",
-      "label": "Enable Auto Redirect",
-      "info": "Automatically redirect users to their country-specific page based on geolocation. When enabled, the popup is not shown.",
-      "default": false
-    },
     {
       "type": "header",
       "content": "Popup Type"
@@ -289,12 +274,6 @@
           "label": "Button Grid"
         }
       ]
-    },
-    {
-      "type": "text",
-      "id": "trigger_button_text",
-      "label": "Country selector button text",
-      "default": "Choose country or region"
     },
     {
       "type": "text",

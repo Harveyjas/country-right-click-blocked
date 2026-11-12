@@ -1,0 +1,27 @@
+<script src="{{ 'country-detection.js' | asset_url }}" defer></script>
+<script src="{{ 'auto-redirect.js' | asset_url }}" defer></script>
+
+<div
+  id="country-blocker-auto-redirect"
+  data-country="{{ localization.country.iso_code }}"
+  hidden
+>
+  <script id="auto-redirect-rules" type="application/json">
+    {% if shop.metafields.countryblocker.redirection-rules %}
+      {{ shop.metafields.countryblocker.redirection-rules }}
+    {% else %}
+      {}
+    {% endif %}
+  </script>
+  {% form 'localization' %}
+    <input type="hidden" name="country_code" value="{{ localization.country.iso_code }}">
+  {% endform %}
+</div>
+
+{% schema %}
+{
+  "name": "Auto Redirect",
+  "target": "body",
+  "settings": []
+}
+{% endschema %}

@@ -298,7 +298,7 @@ export default function Index() {
 
   return (
     <Page
-      title="Dashboard"
+      title="Home"
       subtitle={`${shopName} · Storefront protection overview`}
     >
       <Layout>
@@ -410,10 +410,7 @@ export default function Index() {
                 </InlineStack>
                 <InlineStack gap="200" wrap>
                   <Link to="/app/faq">
-                    <Button>Help center</Button>
-                  </Link>
-                  <Link to="/app/privacy-policy">
-                    <Button variant="plain">Privacy policy</Button>
+                    <Button>Open help</Button>
                   </Link>
                 </InlineStack>
               </InlineStack>

@@ -220,7 +220,7 @@ export default function WelcomeGuide({
         id: "content-protection",
         title: "Turn on content protection",
         description:
-          "Discourage casual copying by blocking right-click and common shortcuts. Enable the setting, then add the block to your theme.",
+          "Discourage casual copying by blocking right-click and common shortcuts. Turn the setting on, save, then enable the app embed on your theme.",
         complete: contentProtectionEnabled,
         optional: true,
         primaryAction: (

@@ -1,5 +1,6 @@
-import { useEffect } from "react";
-import { useFetcher, useLoaderData } from "@remix-run/react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
+import { SaveBar } from "@shopify/app-bridge-react";
 import {
   Page,
   Layout,
@@ -25,23 +26,55 @@ import {
 import { authenticate } from "../shopify.server";
 import { json } from "@remix-run/node";
 import CountrySelector from "../components/CountrySelector";
-import { useState, useCallback } from "react";
+import {
+  arraysEqualAsSets,
+  useContextualSaveBar,
+} from "../hooks/useContextualSaveBar";
+
+const SAVE_BAR_ID = "country-blocker-save-bar";
+const THEME_BLOCK_HANDLE = "country_blocker";
+
+function resolvePlan(activeSubscriptions = []) {
+  if (!activeSubscriptions.length) {
+    return { hasPlan: false, planType: "none" };
+  }
+
+  const premiumPlan = activeSubscriptions.find((sub) => {
+    const name = sub.name?.toLowerCase() || "";
+    return (
+      name.includes("forever 1") ||
+      name.includes("forever 2.99") ||
+      name.includes("2.99") ||
+      name.includes("growth") ||
+      name.includes("premium")
+    );
+  });
+
+  const freePlan = activeSubscriptions.find((sub) => {
+    const name = sub.name?.toLowerCase() || "";
+    return (
+      name.includes("forever free") ||
+      name.includes("essential") ||
+      name.includes("free")
+    );
+  });
+
+  if (premiumPlan) return { hasPlan: true, planType: "premium" };
+  if (freePlan) return { hasPlan: true, planType: "free" };
+  return { hasPlan: true, planType: "free" };
+}
 
 export const loader = async ({ request }) => {
   const { admin, session } = await authenticate.admin(request);
-  
-  // Get shop data from session
   const shop = session.shop;
-  
-  // Default plan values
+
   let hasPlan = false;
-  let planType = "none"; // "none", "free", or "premium"
-  
+  let planType = "none";
+  let selectedCountries = [];
+
   try {
-    // Check if the shop has an active subscription using Shopify GraphQL API
-    const response = await admin.graphql(
-      `#graphql
-      query getAppSubscription {
+    const response = await admin.graphql(`#graphql
+      query CountryBlockerPage {
         currentAppInstallation {
           activeSubscriptions {
             id
@@ -49,153 +82,77 @@ export const loader = async ({ request }) => {
             status
           }
         }
-      }`
-    );
-    
-    const responseJson = await response.json();
-    const activeSubscriptions = responseJson.data?.currentAppInstallation?.activeSubscriptions || [];
-    
-    // Debug: Log the actual subscription data
-    console.log('Main Index - Raw subscription response:', JSON.stringify(responseJson, null, 2));
-    console.log('Main Index - Active subscriptions:', activeSubscriptions);
-    
-    // If there are any active subscriptions, determine the plan type
-    if (activeSubscriptions.length > 0) {
-      hasPlan = true;
-      
-      // Log each subscription for debugging
-      activeSubscriptions.forEach((sub, index) => {
-        console.log(`Main Index - Subscription ${index}:`, {
-          id: sub.id,
-          name: sub.name,
-          status: sub.status,
-          nameLowerCase: sub.name?.toLowerCase()
-        });
-      });
-      
-      // Check for plan type based on name
-      // Assuming plan names are "Forever Free", "Essential", "Forever 2.99", and "Growth"
-      const premiumPlan = activeSubscriptions.find(sub => 
-        sub.name?.toLowerCase().includes("forever 1") || 
-        sub.name?.toLowerCase().includes("forever 2.99") ||
-        sub.name?.toLowerCase().includes("2.99") ||
-        sub.name?.toLowerCase().includes("growth") ||
-        sub.name?.toLowerCase().includes("premium")
-      );
-      
-      const freePlan = activeSubscriptions.find(sub => 
-        sub.name?.toLowerCase().includes("forever free") || 
-        sub.name?.toLowerCase().includes("essential") ||
-        sub.name?.toLowerCase().includes("free")
-      );
-      
-      console.log('Main Index - Premium plan found:', premiumPlan);
-      console.log('Main Index - Free plan found:', freePlan);
-      
-      if (premiumPlan) {
-        planType = "premium";
-      } else if (freePlan) {
-        planType = "free";
+        shop {
+          id
+          myshopifyDomain
+          metafield(namespace: "countryselector", key: "selected-country") {
+            value
+          }
+        }
       }
-      
-      console.log('Main Index - Final plan type determined:', planType);
-      console.log('Main Index - hasPlan:', hasPlan);
-    } else {
-      console.log('Main Index - No active subscriptions found');
+    `);
+
+    const responseJson = await response.json();
+    const activeSubscriptions =
+      responseJson.data?.currentAppInstallation?.activeSubscriptions || [];
+    const plan = resolvePlan(activeSubscriptions);
+    hasPlan = plan.hasPlan;
+    planType = plan.planType;
+
+    const metafield = responseJson.data?.shop?.metafield;
+    if (metafield?.value) {
+      try {
+        const parsed = JSON.parse(metafield.value);
+        selectedCountries = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        selectedCountries = [];
+      }
     }
-  } catch (error) {
-    console.error('Error checking subscription status:', error);
-    // Default to no plan if there's an error
+  } catch {
     hasPlan = false;
     planType = "none";
   }
-  
-  // Also fetch current country selections to check against limits
-  let selectedCountries = [];
-  try {
-    const metafieldResponse = await admin.graphql(
-      `#graphql
-        query {
-          shop {
-            metafield(namespace: "countryselector", key: "selected-country") {
-              value
-            }
-          }
-        }
-      `
-    );
-    
-    const metafieldJson = await metafieldResponse.json();
-    const metafield = metafieldJson.data?.shop?.metafield;
-    
-    if (metafield && metafield.value) {
-      try {
-        selectedCountries = JSON.parse(metafield.value);
-      } catch (parseError) {
-        console.error("Error parsing countries metafield:", parseError);
-      }
-    }
-  } catch (error) {
-    console.error("Error fetching countries metafield:", error);
-  }
-  
+
   return json({
     shop,
     apiKey: process.env.SHOPIFY_API_KEY || "",
     hasPlan,
     planType,
     selectedCountries,
-    countryLimit: planType === "free" ? 5 : null // null means unlimited
+    countryLimit: planType === "free" ? 5 : null,
   });
 };
 
 export const action = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
-  
-  // Get the form data
   const formData = await request.formData();
   const countries = JSON.parse(formData.get("countries") || "[]");
-  const actionType = formData.get("action_type") || "updated";
-  
-  console.log("Saving countries:", countries, "Action type:", actionType);
-  
-  // Get the shop ID
-  const response = await admin.graphql(
-    `#graphql
-      query {
-        shop {
-          id
-        }
-      }
-    `
-  );
-  
-  const responseJson = await response.json();
-  
-  if (responseJson.errors) {
-    console.error("GraphQL errors:", responseJson.errors);
-    return json({ error: "Failed to get shop ID", details: responseJson.errors }, { status: 500 });
+
+  const shopResponse = await admin.graphql(`#graphql
+    query {
+      shop { id }
+    }
+  `);
+  const shopJson = await shopResponse.json();
+
+  if (shopJson.errors) {
+    return json(
+      { error: "Couldn't load shop details. Try again." },
+      { status: 500 },
+    );
   }
-  
-  const shopId = responseJson.data?.shop?.id;
+
+  const shopId = shopJson.data?.shop?.id;
   if (!shopId) {
-    console.error("No shop ID found");
-    return json({ error: "Failed to get shop ID" }, { status: 500 });
+    return json({ error: "Couldn't load shop details. Try again." }, { status: 500 });
   }
-  
-  // Create or update the metafield
+
   const metafieldResponse = await admin.graphql(
     `#graphql
       mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
         metafieldsSet(metafields: $metafields) {
-          metafields {
-            id
-            value
-          }
-          userErrors {
-            field
-            message
-          }
+          metafields { id value }
+          userErrors { field message }
         }
       }
     `,
@@ -211,52 +168,51 @@ export const action = async ({ request }) => {
           },
         ],
       },
-    }
+    },
   );
-  
-  const metafieldResponseJson = await metafieldResponse.json();
-  
-  if (metafieldResponseJson.errors) {
-    console.error("GraphQL errors:", metafieldResponseJson.errors);
-    return json({ 
-      error: "Failed to save countries", 
-      details: metafieldResponseJson.errors 
-    }, { status: 500 });
+
+  const metafieldJson = await metafieldResponse.json();
+
+  if (metafieldJson.errors) {
+    return json(
+      { error: "Couldn't save countries. Try again." },
+      { status: 500 },
+    );
   }
-  
-  if (metafieldResponseJson.data?.metafieldsSet?.userErrors?.length > 0) {
-    console.error("Metafield save errors:", metafieldResponseJson.data.metafieldsSet.userErrors);
-    return json({ 
-      error: "Failed to save countries", 
-      details: metafieldResponseJson.data.metafieldsSet.userErrors 
-    }, { status: 500 });
+
+  if (metafieldJson.data?.metafieldsSet?.userErrors?.length > 0) {
+    return json(
+      {
+        error:
+          metafieldJson.data.metafieldsSet.userErrors[0]?.message ||
+          "Couldn't save countries. Try again.",
+      },
+      { status: 500 },
+    );
   }
-  
-  // Create success message based on action type
-  let successMessage = "Countries updated successfully!";
-  if (actionType === "added") {
-    successMessage = countries.length === 1 ? "Country added successfully!" : "Countries added successfully!";
-  } else if (actionType === "removed") {
-    successMessage = "Countries removed successfully!";
-  }
-  
-  return json({ success: true, message: successMessage, actionType });
+
+  return json({
+    success: true,
+    message: "Country blocking settings saved.",
+    countries,
+  });
 };
 
 function PlanBadge({ planType, hasPlan }) {
-  if (!hasPlan) {
-    return <Badge tone="warning">No plan</Badge>;
-  }
-  if (planType === "premium") {
-    return <Badge tone="success">Premium</Badge>;
-  }
-  if (planType === "free") {
-    return <Badge tone="info">Essential</Badge>;
-  }
+  if (!hasPlan) return <Badge tone="warning">No plan</Badge>;
+  if (planType === "premium") return <Badge tone="success">Growth</Badge>;
+  if (planType === "free") return <Badge tone="info">Essential</Badge>;
   return <Badge>Plan active</Badge>;
 }
 
-function StatusOverview({ selectedCount, countryLimit, planType, hasPlan, isSaving }) {
+function StatusOverview({
+  selectedCount,
+  countryLimit,
+  planType,
+  hasPlan,
+  isDirty,
+  isSaving,
+}) {
   const remaining =
     countryLimit != null ? Math.max(countryLimit - selectedCount, 0) : null;
   const progress =
@@ -266,11 +222,14 @@ function StatusOverview({ selectedCount, countryLimit, planType, hasPlan, isSavi
         ? 100
         : 0;
 
-  let statusDetail = "Choose countries below to restrict storefront access.";
+  let statusDetail = "Choose countries below, then save with the save bar.";
   if (!hasPlan) {
     statusDetail = "Select a subscription plan to start blocking countries.";
+  } else if (isDirty) {
+    statusDetail = "You have unsaved changes. Save or discard them with the save bar.";
   } else if (selectedCount === 0) {
-    statusDetail = "No countries blocked yet. Expand a region and pick countries to protect your store.";
+    statusDetail =
+      "No countries blocked yet. Expand a region and pick countries to protect your store.";
   } else if (countryLimit != null) {
     statusDetail =
       remaining === 0
@@ -308,6 +267,11 @@ function StatusOverview({ selectedCount, countryLimit, planType, hasPlan, isSavi
                   Country blocking
                 </Text>
                 <PlanBadge planType={planType} hasPlan={hasPlan} />
+                {isDirty && (
+                  <Badge tone="attention" size="small">
+                    Unsaved
+                  </Badge>
+                )}
                 {isSaving && (
                   <Badge tone="info" size="small">
                     Saving…
@@ -327,11 +291,16 @@ function StatusOverview({ selectedCount, countryLimit, planType, hasPlan, isSavi
             minWidth="120px"
           >
             <BlockStack gap="050">
-              <Text as="p" variant="headingXl" fontWeight="semibold" alignment="center">
+              <Text
+                as="p"
+                variant="headingXl"
+                fontWeight="semibold"
+                alignment="center"
+              >
                 {selectedCount}
               </Text>
               <Text as="p" variant="bodySm" tone="subdued" alignment="center">
-                {selectedCount === 1 ? "country blocked" : "countries blocked"}
+                {selectedCount === 1 ? "country selected" : "countries selected"}
               </Text>
             </BlockStack>
           </Box>
@@ -341,7 +310,11 @@ function StatusOverview({ selectedCount, countryLimit, planType, hasPlan, isSavi
       {hasPlan && countryLimit != null && (
         <>
           <Divider />
-          <Box padding="300" paddingInline="400" background="bg-surface-secondary">
+          <Box
+            padding="300"
+            paddingInline="400"
+            background="bg-surface-secondary"
+          >
             <BlockStack gap="200">
               <InlineStack align="space-between" blockAlign="center">
                 <Text as="span" variant="bodySm" tone="subdued">
@@ -364,45 +337,66 @@ function StatusOverview({ selectedCount, countryLimit, planType, hasPlan, isSavi
   );
 }
 
-function ThemeIntegrationCard({ hasPlan, onEmbedClick }) {
+function ThemeIntegrationCard({
+  hasPlan,
+  themeStatus,
+  onEmbedClick,
+}) {
+  const isLive = themeStatus === "Active";
+
   return (
     <Card padding="0">
       <Box padding="400">
         <BlockStack gap="400">
-          <InlineStack gap="300" blockAlign="start" wrap={false}>
-            <Box
-              background="bg-fill-success-secondary"
-              padding="200"
-              borderRadius="200"
-              minHeight="40px"
-              minWidth="40px"
+          <InlineStack align="space-between" blockAlign="start" wrap gap="200">
+            <InlineStack gap="300" blockAlign="start" wrap={false}>
+              <Box
+                background="bg-fill-success-secondary"
+                padding="200"
+                borderRadius="200"
+                minHeight="40px"
+                minWidth="40px"
+              >
+                <InlineStack align="center" blockAlign="center">
+                  <Icon source={ThemeIcon} tone="success" />
+                </InlineStack>
+              </Box>
+              <BlockStack gap="050">
+                <Text as="h2" variant="headingMd">
+                  Theme integration
+                </Text>
+                <Text as="p" variant="bodySm" tone="subdued">
+                  Enable the Country Blocker app embed on your published theme.
+                </Text>
+              </BlockStack>
+            </InlineStack>
+            <Badge
+              tone={
+                themeStatus === "checking"
+                  ? "info"
+                  : isLive
+                    ? "success"
+                    : "attention"
+              }
+              size="small"
             >
-              <InlineStack align="center" blockAlign="center">
-                <Icon source={ThemeIcon} tone="success" />
-              </InlineStack>
-            </Box>
-            <BlockStack gap="050">
-              <Text as="h2" variant="headingMd">
-                Theme integration
-              </Text>
-              <Text as="p" variant="bodySm" tone="subdued">
-                Add the country blocker block so rules apply on your live storefront.
-              </Text>
-            </BlockStack>
+              {themeStatus === "checking"
+                ? "Checking…"
+                : isLive
+                  ? "Live on theme"
+                  : "Setup needed"}
+            </Badge>
           </InlineStack>
 
           {!hasPlan ? (
-            <Box
-              background="bg-surface-warning"
-              padding="300"
-              borderRadius="200"
-            >
+            <Box background="bg-surface-warning" padding="300" borderRadius="200">
               <BlockStack gap="100">
                 <Text as="p" variant="bodyMd" fontWeight="semibold">
                   Subscription required
                 </Text>
                 <Text as="p" variant="bodySm" tone="subdued">
-                  Choose a plan to unlock theme integration and start protecting your store.
+                  Choose a plan to unlock theme integration and start protecting
+                  your store.
                 </Text>
               </BlockStack>
             </Box>
@@ -423,20 +417,25 @@ function ThemeIntegrationCard({ hasPlan, onEmbedClick }) {
                   <InlineStack gap="200" blockAlign="start" wrap={false}>
                     <Badge tone="info">2</Badge>
                     <Text as="p" variant="bodySm">
-                      Enable the Country Blocker app block
+                      Enable the Country Blocker app embed
                     </Text>
                   </InlineStack>
                   <InlineStack gap="200" blockAlign="start" wrap={false}>
                     <Badge tone="info">3</Badge>
                     <Text as="p" variant="bodySm">
-                      Save — blocked visitors are restricted instantly
+                      Save the theme — blocked visitors see the restriction message
                     </Text>
                   </InlineStack>
                 </BlockStack>
               </Box>
 
-              <Button onClick={onEmbedClick} variant="primary" size="large" fullWidth>
-                Open theme editor
+              <Button
+                onClick={onEmbedClick}
+                variant="primary"
+                size="large"
+                fullWidth
+              >
+                {isLive ? "Manage in theme editor" : "Open theme editor"}
               </Button>
             </BlockStack>
           )}
@@ -445,11 +444,16 @@ function ThemeIntegrationCard({ hasPlan, onEmbedClick }) {
       {hasPlan && (
         <>
           <Divider />
-          <Box padding="300" paddingInline="400" background="bg-surface-secondary">
+          <Box
+            padding="300"
+            paddingInline="400"
+            background="bg-surface-secondary"
+          >
             <InlineStack gap="200" blockAlign="center" wrap={false}>
               <Icon source={CheckCircleIcon} tone="success" />
               <Text as="p" variant="bodySm" tone="subdued">
-                Changes save automatically — enable the block once to go live.
+                Settings apply on the storefront only after this app embed is
+                enabled.
               </Text>
             </InlineStack>
           </Box>
@@ -471,10 +475,12 @@ function HowItWorksCard() {
         </InlineStack>
         <BlockStack gap="200">
           <Text as="p" variant="bodySm" tone="subdued">
-            Visitors from selected countries won't reach your storefront content once the theme block is active.
+            Visitors from selected countries won&apos;t reach your storefront
+            content once the theme embed is active.
           </Text>
           <Text as="p" variant="bodySm" tone="subdued">
-            Use Quick Select for whole regions, or expand a continent to fine-tune individual countries.
+            Use Quick Select for whole regions, or expand a continent to
+            fine-tune individual countries.
           </Text>
         </BlockStack>
       </BlockStack>
@@ -482,157 +488,196 @@ function HowItWorksCard() {
   );
 }
 
-export default function Index() {
-  const { shop, apiKey, hasPlan, planType, selectedCountries: initialCountries, countryLimit } = useLoaderData();
+export default function CountryBlockerPage() {
+  const {
+    shop,
+    apiKey,
+    hasPlan,
+    planType,
+    selectedCountries: initialCountries,
+    countryLimit,
+  } = useLoaderData();
   const fetcher = useFetcher();
-  const [selectedCountries, setSelectedCountries] = useState(initialCountries || []);
-  const [feedbackMessage, setFeedbackMessage] = useState(null);
-  const [feedbackType, setFeedbackType] = useState("success"); // "success" or "critical"
-  
-  // Define isPremiumPlan here to fix the reference error
-  const isPremiumPlan = planType === "premium";
+  const navigate = useNavigate();
 
-  // Handle fetcher state changes for visual feedback
+  const [savedCountries, setSavedCountries] = useState(initialCountries || []);
+  const [draftCountries, setDraftCountries] = useState(initialCountries || []);
+  const [feedback, setFeedback] = useState(null);
+  const [themeStatus, setThemeStatus] = useState("checking");
+
+  const isDirty = useMemo(
+    () => !arraysEqualAsSets(draftCountries, savedCountries),
+    [draftCountries, savedCountries],
+  );
+  const isSaving = fetcher.state === "submitting";
+
+  useContextualSaveBar(SAVE_BAR_ID, isDirty && hasPlan);
+
   useEffect(() => {
-    if (fetcher.state === "idle" && fetcher.data) {
-      if (fetcher.data.success) {
-        setFeedbackMessage(fetcher.data.message || "Countries updated successfully!");
-        setFeedbackType("success");
-      } else if (fetcher.data.error) {
-        setFeedbackMessage(`Error: ${fetcher.data.error}`);
-        setFeedbackType("critical");
-      }
-      
-    }
-  }, [fetcher.state, fetcher.data]);
+    setSavedCountries(initialCountries || []);
+    setDraftCountries(initialCountries || []);
+  }, [initialCountries]);
 
-  const handleCountryChange = useCallback((countries) => {
-    console.log("Countries selected:", countries);
-    
-    // Clear any existing feedback
-    setFeedbackMessage(null);
-    
-    // Determine if countries were added or removed
-    const previousCount = selectedCountries.length;
-    const newCount = countries.length;
-    
-    // If on free plan and exceeding limit, enforce the limit
-    let countriesToSave = countries;
-    if (planType === "free" && countryLimit && countries.length > countryLimit) {
-      // Only take the first 5 countries
-      countriesToSave = countries.slice(0, countryLimit);
-      setSelectedCountries(countriesToSave);
-    } else {
-      setSelectedCountries(countries);
+  useEffect(() => {
+    if (fetcher.state !== "idle" || !fetcher.data) return;
+
+    if (fetcher.data.success) {
+      const next = Array.isArray(fetcher.data.countries)
+        ? fetcher.data.countries
+        : draftCountries;
+      setSavedCountries(next);
+      setDraftCountries(next);
+      setFeedback({
+        tone: "success",
+        message: fetcher.data.message || "Country blocking settings saved.",
+      });
+    } else if (fetcher.data.error) {
+      setFeedback({ tone: "critical", message: fetcher.data.error });
     }
-    
-    // Save to metafield using fetcher for better state management
+  }, [fetcher.state, fetcher.data, draftCountries]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const checkTheme = async () => {
+      try {
+        const extensions = await window.shopify?.app?.extensions();
+        const themeExtensions =
+          extensions?.filter((ext) => ext.type === "theme_app_extension") || [];
+
+        let status = "Not active";
+        for (const extension of themeExtensions) {
+          for (const activation of extension.activations || []) {
+            if (activation.handle === THEME_BLOCK_HANDLE) {
+              status =
+                activation.status === "active" ? "Active" : "Not active";
+            }
+          }
+        }
+        if (mounted) setThemeStatus(status);
+      } catch {
+        if (mounted) setThemeStatus("Not active");
+      }
+    };
+
+    checkTheme();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleCountryChange = useCallback(
+    (countries) => {
+      setFeedback(null);
+      let next = countries;
+      if (planType === "free" && countryLimit && countries.length > countryLimit) {
+        next = countries.slice(0, countryLimit);
+      }
+      setDraftCountries(next);
+    },
+    [planType, countryLimit],
+  );
+
+  const handleSave = useCallback(() => {
     const formData = new FormData();
-    formData.append("countries", JSON.stringify(countriesToSave));
-    formData.append("action_type", newCount > previousCount ? "added" : newCount < previousCount ? "removed" : "updated");
+    formData.append("countries", JSON.stringify(draftCountries));
     fetcher.submit(formData, { method: "post" });
-  }, [planType, countryLimit, fetcher, selectedCountries]);
+  }, [draftCountries, fetcher]);
+
+  const handleDiscard = useCallback(() => {
+    setDraftCountries(savedCountries);
+    setFeedback(null);
+  }, [savedCountries]);
 
   const handleEmbedClick = useCallback(() => {
-    try {
-      // Use the shop from loader data
-      if (!shop) {
-        console.error('Shop information not available');
-        return;
-      }
-
-      // Extract the shop name without .myshopify.com
-      const shopName = shop.replace('.myshopify.com', '');
-
-      console.log('shopppppp',shopName)
-      
-      // Construct the URL using admin.shopify.com format d7c3a32f-9572-4caf-aadd-ab0a618f3c30
-      const embedUrl = `https://admin.shopify.com/store/${shopName}/themes/current/editor?context=apps&template=index&activateAppId=${apiKey}/country_blocker`;
-      console.log('Opening URL:', embedUrl);
-
-      // Open in a new tab
-      window.open(embedUrl, '_blank');
-    } catch (error) {
-      console.error('Error opening theme editor:', error);
-    }
+    if (!shop) return;
+    const shopName = shop.replace(".myshopify.com", "");
+    const embedUrl = `https://admin.shopify.com/store/${shopName}/themes/current/editor?context=apps&template=index&activateAppId=${apiKey}/${THEME_BLOCK_HANDLE}`;
+    window.open(embedUrl, "_blank");
   }, [shop, apiKey]);
-  
+
   const handleManagePricingClick = useCallback(() => {
-    try {
-      // Use the shop from loader data
-      if (!shop) {
-        console.error('Shop information not available');
-        return;
-      }
-
-      // Extract the shop name without .myshopify.com
-      const shopName = shop.replace('.myshopify.com', '');
-      
-      // Construct the URL for the pricing plans page
-      const pricingUrl = `https://admin.shopify.com/store/${shopName}/charges/insta-18/pricing_plans`;
-      console.log('Opening pricing URL:', pricingUrl);
-
-      // Open in a new tab
-      window.open(pricingUrl, '_blank');
-    } catch (error) {
-      console.error('Error opening pricing page:', error);
-    }
+    if (!shop) return;
+    const shopName = shop.replace(".myshopify.com", "");
+    window.open(
+      `https://admin.shopify.com/store/${shopName}/charges/insta-18/pricing_plans`,
+      "_blank",
+    );
   }, [shop]);
 
-  const isSaving = fetcher.state === "submitting";
+  const pageBanner = !hasPlan
+    ? {
+        tone: "warning",
+        message: "Select a subscription plan to use country blocking.",
+        action: { content: "View plans", onAction: handleManagePricingClick },
+      }
+    : feedback;
 
   return (
     <Page
       title="Block countries"
       subtitle="Choose which countries can access your storefront."
-      backAction={{ content: "Dashboard", url: "/app" }}
+      backAction={{
+        content: "Home",
+        onAction: async () => {
+          try {
+            if (isDirty && window.shopify?.saveBar?.leaveConfirmation) {
+              await window.shopify.saveBar.leaveConfirmation();
+            }
+            navigate("/app");
+          } catch {
+            // Merchant cancelled leave confirmation.
+          }
+        },
+      }}
     >
+      <SaveBar id={SAVE_BAR_ID} discardConfirmation="">
+        <button
+          variant="primary"
+          onClick={handleSave}
+          disabled={isSaving || !hasPlan}
+          {...(isSaving ? { loading: "" } : {})}
+        />
+        <button onClick={handleDiscard} disabled={isSaving} />
+      </SaveBar>
+
       <BlockStack gap="500">
-        {(feedbackMessage || isSaving || !hasPlan) && (
-          <BlockStack gap="300">
-            {feedbackMessage && (
-              <Banner
-                tone={feedbackType === "critical" ? "critical" : "success"}
-                onDismiss={() => setFeedbackMessage(null)}
-              >
-                <Text as="p" variant="bodyMd">
-                  {feedbackMessage}
-                </Text>
-              </Banner>
-            )}
-
-            {isSaving && (
-              <Banner tone="info">
-                <Text as="p" variant="bodyMd">
-                  Saving countries…
-                </Text>
-              </Banner>
-            )}
-
-            {!hasPlan && (
-              <Banner tone="warning">
-                <Text as="p" variant="bodyMd">
-                  You need to select a subscription plan to use this feature.
-                </Text>
-              </Banner>
-            )}
-          </BlockStack>
+        {pageBanner && (
+          <Banner
+            tone={pageBanner.tone}
+            onDismiss={
+              pageBanner.tone === "critical" || pageBanner.tone === "success"
+                ? () => setFeedback(null)
+                : undefined
+            }
+            action={pageBanner.action}
+          >
+            <Text as="p" variant="bodyMd">
+              {pageBanner.message}
+            </Text>
+          </Banner>
         )}
 
         <Layout>
           <Layout.Section>
             <BlockStack gap="400">
               <StatusOverview
-                selectedCount={selectedCountries.length}
+                selectedCount={draftCountries.length}
                 countryLimit={countryLimit}
                 planType={planType}
                 hasPlan={hasPlan}
+                isDirty={isDirty}
                 isSaving={isSaving}
               />
 
               <Card padding="0">
                 <Box padding="400" paddingBlockEnd="300">
-                  <InlineStack align="space-between" blockAlign="center" wrap gap="300">
+                  <InlineStack
+                    align="space-between"
+                    blockAlign="center"
+                    wrap
+                    gap="300"
+                  >
                     <InlineStack gap="300" blockAlign="center" wrap={false}>
                       <Box
                         background="bg-fill-info-secondary"
@@ -646,13 +691,14 @@ export default function Index() {
                           Select countries
                         </Text>
                         <Text as="p" variant="bodySm" tone="subdued">
-                          Expand a region, then check the countries you want to block
+                          Expand a region, then check the countries you want to
+                          block
                         </Text>
                       </BlockStack>
                     </InlineStack>
-                    {selectedCountries.length > 0 && (
+                    {draftCountries.length > 0 && (
                       <Badge tone="info">
-                        {selectedCountries.length}
+                        {draftCountries.length}
                         {planType === "free" && countryLimit
                           ? ` / ${countryLimit}`
                           : ""}{" "}
@@ -663,16 +709,16 @@ export default function Index() {
                 </Box>
                 <Divider />
                 <Box padding="400">
-                  <div style={{ opacity: hasPlan ? 1 : 0.5 }}>
-                    <CountrySelector
-                      selectedCountries={selectedCountries}
-                      onChange={handleCountryChange}
-                      disabled={!hasPlan}
-                      countryLimit={countryLimit}
-                      limitReached={planType === "free" && selectedCountries.length >= countryLimit}
-                      planType={planType}
-                    />
-                  </div>
+                  <CountrySelector
+                    selectedCountries={draftCountries}
+                    onChange={handleCountryChange}
+                    disabled={!hasPlan}
+                    countryLimit={countryLimit}
+                    limitReached={
+                      planType === "free" &&
+                      draftCountries.length >= countryLimit
+                    }
+                  />
                 </Box>
               </Card>
             </BlockStack>
@@ -682,6 +728,7 @@ export default function Index() {
             <BlockStack gap="400">
               <ThemeIntegrationCard
                 hasPlan={hasPlan}
+                themeStatus={themeStatus}
                 onEmbedClick={handleEmbedClick}
               />
               <HowItWorksCard />

@@ -1,4 +1,5 @@
 <link rel="stylesheet" href="{{ 'Country_bloocker.css' | asset_url }}">
+<script src="{{ 'country-detection.js' | asset_url }}" defer></script>
 <script src="{{ 'Country_blocker.js' | asset_url }}" defer></script>
 {% comment %} <input
   type="hidden"
@@ -15,7 +16,7 @@
   </div>    
 {% schema %}
     {
-      "name": "Country Blocker",
+      "name": "Country blocker",
       "target": "body",
       "class": "floating_popup",
     

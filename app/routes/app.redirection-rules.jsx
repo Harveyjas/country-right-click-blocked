@@ -84,7 +84,7 @@ function CountrySelector({ selectedCountries, onSelectMultiple, onRemoveMultiple
   };
 
   const handleSelectContinent = (continent) => {
-    const countriesToUse = searchQuery.trim() ? filterCountriesBySearch(continent) : availableCountriesInContinent(continent);
+    const countriesToUse = availableCountriesInContinent(continent);
     const allSelected = countriesToUse.every(country => isCountrySelected(country.code));
 
     if (allSelected) {
@@ -112,8 +112,8 @@ function CountrySelector({ selectedCountries, onSelectMultiple, onRemoveMultiple
     <Box paddingBlock="300">
       <BlockStack gap="200">
         <TextField
-          label="Search Countries"
-          placeholder="Search by country name or code..."
+          label="Find a country"
+          placeholder="Search by country name or code"
           value={searchQuery}
           onChange={setSearchQuery}
           clearButton
@@ -127,92 +127,88 @@ function CountrySelector({ selectedCountries, onSelectMultiple, onRemoveMultiple
           if (searchQuery.trim() && !hasSearchResults(continent)) return null;
           
           const filteredCountries = searchQuery.trim() ? filterCountriesBySearch(continent) : availableCountries;
-          const filteredCountriesSelected = filteredCountries.every(country => isCountrySelected(country.code));
-          const filteredCountriesPartiallySelected = filteredCountries.some(country => isCountrySelected(country.code)) && !filteredCountriesSelected;
-
-          const continentFullySelected = searchQuery.trim() ? filteredCountriesSelected : isContinentSelected(continent);
-          const continentPartiallySelected = searchQuery.trim() ? filteredCountriesPartiallySelected : (availableCountries.some(c => 
+          const continentFullySelected = isContinentSelected(continent);
+          const continentPartiallySelected = availableCountries.some(c => 
             selectedCountries.some(sel => sel.code === c.code)
-          ) && !isContinentSelected(continent));
+          ) && !continentFullySelected;
 
           return (
-            <Box key={continent} borderWidth="1" borderColor="border" borderRadius="200" overflow="hidden">
+            <Box key={continent} borderWidth="1" borderColor="border" borderRadius="300" overflow="hidden">
+              <div style={{ display: 'flex', alignItems: 'stretch', background: expandedContinents[continent] ? '#f6f7f7' : '#fff' }}>
               <button
+                type="button"
                 onClick={() => toggleContinent(continent)}
+                aria-expanded={expandedContinents[continent]}
                 style={{
-                  width: '100%',
-                  padding: '12px 16px',
-                  background: expandedContinents[continent] ? '#f3f3f3' : '#fafafa',
+                  flex: 1,
+                  minWidth: 0,
+                  padding: '14px 16px',
+                  background: 'transparent',
                   border: 'none',
                   cursor: 'pointer',
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  fontSize: '14px',
-                  fontWeight: '500',
+                  textAlign: 'left',
+                  font: 'inherit',
                 }}
               >
                 <InlineStack gap="200" align="center">
                   <Text variant="bodySm" fontWeight="semibold">{continent}</Text>
+                  <Text variant="bodySm" tone="subdued">
+                    {availableCountries.filter(country => isCountrySelected(country.code)).length} of {availableCountries.length} selected
+                  </Text>
                   {continentFullySelected && <Badge tone="success">All selected</Badge>}
                   {continentPartiallySelected && <Badge tone="info">Partially selected</Badge>}
                 </InlineStack>
                 <Text variant="bodySm">{expandedContinents[continent] ? '−' : '+'}</Text>
               </button>
-              
+              <div style={{ display: 'flex', alignItems: 'center', padding: '0 12px' }}>
+                <Button
+                  size="slim"
+                  variant="tertiary"
+                  onClick={() => handleSelectContinent(continent)}
+                  accessibilityLabel={`${continentFullySelected ? 'Deselect all' : 'Select all'} ${continent} countries`}
+                >
+                  {continentFullySelected ? 'Deselect all' : 'Select all'}
+                </Button>
+              </div>
+              </div>
+
               {expandedContinents[continent] && (
                 <Box paddingBlock="200" paddingInline="200" background="bg-surface">
                   <BlockStack gap="100">
-                    <Box 
-                      paddingBlock="100" 
-                      paddingInline="100"
-                      background={continentFullySelected ? '#e8f5e9' : '#f5f5f5'}
-                      borderRadius="100"
-                    >
-                      <button
-                        onClick={() => handleSelectContinent(continent)}
-                        style={{
-                          width: '100%',
-                          padding: '8px 0',
-                          background: 'transparent',
-                          border: 'none',
-                          cursor: 'pointer',
-                          textAlign: 'left',
-                          fontWeight: 'bold',
-                          fontSize: '13px',
-                          fontFamily: 'inherit',
-                          color: continentFullySelected ? '#2e7d32' : '#333',
-                        }}
-                      >
-                        {continentFullySelected ? '✓ Select All' : 'Select All'}
-                      </button>
-                    </Box>
                     {filterCountriesBySearch(continent).map((country) => {
                       const isSelected = isCountrySelected(country.code);
                       
                       return (
-                        <button
+                        <label
                           key={country.code}
-                          onClick={() => handleCountryToggle(country.name, country.code)}
                           style={{
                             width: '100%',
+                            boxSizing: 'border-box',
                             padding: '10px 12px',
-                            background: isSelected ? '#e3f2fd' : 'transparent',
-                            border: isSelected ? '1px solid #1e88e5' : 'none',
-                            borderRadius: '4px',
+                            background: isSelected ? '#f0f8f2' : '#fff',
+                            border: `1px solid ${isSelected ? '#b7d9c1' : '#e3e5e7'}`,
+                            borderRadius: '6px',
                             cursor: 'pointer',
-                            textAlign: 'left',
-                            fontSize: '13px',
-                            fontFamily: 'inherit',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'flex-start',
+                            gap: '10px',
                           }}
                         >
-                          <InlineStack gap="200" align="center">
-                            <Text variant="bodySm">
-                              {isSelected && '✓'} {country.name}
-                            </Text>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleCountryToggle(country.name, country.code)}
+                            style={{ width: 16, height: 16, margin: 0, accentColor: '#16834a', flexShrink: 0, cursor: 'pointer' }}
+                          />
+                          <span style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 8 }}>
+                            <Text variant="bodySm">{country.name}</Text>
                             <Badge tone="subdued">{country.code}</Badge>
-                          </InlineStack>
-                        </button>
+                          </span>
+                        </label>
                       );
                     })}
                   </BlockStack>
@@ -667,7 +663,7 @@ function AddRedirectionModal({ isOpen, onClose, onAdd, existingRules = [] }) {
                   </Box>
                 )}
                 <Text variant="bodySm" tone="subdued">
-                  Click "Select All" to select an entire continent, or click individual countries
+                  Choose individual countries, or expand a continent and select all of its available countries.
                 </Text>
               </BlockStack>
             </Box>
@@ -1107,60 +1103,56 @@ export default function RedirectionRules() {
     </Badge>,
   ]);
 
+  const pageBanner = bannerError
+    ? { tone: "critical", message: bannerError, onDismiss: () => setBannerError("") }
+    : bannerMessage
+      ? { tone: "success", message: bannerMessage, onDismiss: () => setBannerMessage("") }
+      : null;
+
+  const openThemeEmbed = (embedHandle) => {
+    if (!shop) return;
+    const shopName = shop.replace(".myshopify.com", "");
+    const embedUrl = `https://admin.shopify.com/store/${shopName}/themes/current/editor?context=apps&template=index&activateAppId=${apiKey}/${embedHandle}`;
+    window.open(embedUrl, "_blank");
+  };
+
   return (
-    <Page title="Geo redirects" subtitle="Send visitors from selected countries to a different URL." backAction={{ content: "Dashboard", url: "/app" }} fullWidth>
-      <BlockStack gap="800">
-        {bannerMessage && (
-          <Banner title="Success" onDismiss={() => setBannerMessage('')} tone="success">
-            <p>{bannerMessage}</p>
-          </Banner>
-        )}
-        {bannerError && (
-          <Banner title="Error" onDismiss={() => setBannerError('')} tone="critical">
-            <p>{bannerError}</p>
+    <Page
+      title="Geo redirects"
+      subtitle="Create a more relevant storefront experience for every market."
+      backAction={{ content: "Home", url: "/app" }}
+      fullWidth
+    >
+      <BlockStack gap="500">
+        {pageBanner && (
+          <Banner tone={pageBanner.tone} onDismiss={pageBanner.onDismiss}>
+            <p>{pageBanner.message}</p>
           </Banner>
         )}
         <Layout>
           <Layout.Section>
-            <BlockStack gap="600">
-              <Box paddingBlockEnd="400">
-                <BlockStack gap="200">
-                  <Text as="h1" variant="headingLg">
-                    Your redirect rules
-                  </Text>
-                  <Text as="p" variant="bodyMd" tone="subdued">
-                    Create country-specific redirects so visitors land on the right destination.
-                  </Text>
-                </BlockStack>
-              </Box>
-
-              <Card>
-                <BlockStack gap="400">
-                  <Box 
-                    paddingBlock="400" 
-                    paddingInline="400"
-                    borderBottomWidth="1"
-                    borderColor="border"
-                  >
-                    <InlineStack align="space-between" blockAlign="center">
+            <BlockStack gap="500">
+              <Card padding="0">
+                <BlockStack gap="0">
+                  <Box padding="500" background="bg-surface-secondary">
+                    <InlineStack align="space-between" blockAlign="center" wrap gap="400">
                       <BlockStack gap="200">
-                        <Text as="h2" variant="headingMd">
-                          Geo redirect rules
-                        </Text>
-                        <Text as="p" variant="bodySm" tone="subdued">
-                          Set up country-specific redirect URLs
+                        <InlineStack gap="200" blockAlign="center">
+                          <Text as="h2" variant="headingLg">Your redirect rules</Text>
+                          <Badge tone={redirections.length ? "success" : "subdued"}>
+                            {redirections.length} {redirections.length === 1 ? "rule" : "rules"}
+                          </Badge>
+                        </InlineStack>
+                        <Text as="p" variant="bodyMd" tone="subdued">
+                          Guide visitors to the right destination based on where they shop from.
                         </Text>
                       </BlockStack>
-                      <Button
-                        primary
-                        icon={PlusIcon}
-                        onClick={() => setIsAddModalOpen(true)}
-                        size="medium"
-                      >
-                        Add Rule
+                      <Button variant="primary" icon={PlusIcon} onClick={() => setIsAddModalOpen(true)}>
+                        Create rule
                       </Button>
                     </InlineStack>
                   </Box>
+                  <Divider />
                   <Box paddingBlock="400" paddingInline="400">
                     {redirections.length === 0 ? (
                       <EmptyState
@@ -1184,23 +1176,20 @@ export default function RedirectionRules() {
                 </BlockStack>
               </Card>
 
-              <Card>
-                <BlockStack gap="400">
-                  <Box 
-                    paddingBlock="400" 
-                    paddingInline="400"
-                    borderBottomWidth="1"
-                    borderColor="border"
-                  >
-                    <BlockStack gap="200">
-                      <Text as="h2" variant="headingMd">
-                        Market data
-                      </Text>
-                      <Text as="p" variant="bodySm" tone="subdued">
-                        View all active markets and their associated countries
-                      </Text>
-                    </BlockStack>
+              <Card padding="0">
+                <BlockStack gap="0">
+                  <Box padding="400">
+                    <InlineStack align="space-between" blockAlign="center" wrap gap="300">
+                      <BlockStack gap="100">
+                        <Text as="h2" variant="headingMd">Markets</Text>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          Countries and availability from your Shopify Markets setup.
+                        </Text>
+                      </BlockStack>
+                      <Badge tone="info">{markets.length} {markets.length === 1 ? "market" : "markets"}</Badge>
+                    </InlineStack>
                   </Box>
+                  <Divider />
                   <Box paddingBlock="400" paddingInline="400">
                     {markets.length === 0 ? (
                       <EmptyState
@@ -1224,62 +1213,29 @@ export default function RedirectionRules() {
                 </BlockStack>
               </Card>
 
-              <Card>
-                <BlockStack gap="500">
-                  <div>
-                    <Text as="h2" variant="headingMd">
-                      Theme Integration
-                    </Text>
-                    <Text as="p" variant="bodySm" color="subdued" tone="subdued">
-                      Seamlessly integrate country blocking into your store theme
-                    </Text>
-                  </div>
-                  
-                  <div style={{ 
-                    opacity: 1,
-                    pointerEvents: "auto"
-                  }}>
-                    <BlockStack gap="400">
-                      <div style={{
-                        backgroundColor: "rgba(226, 232, 240, 0.4)",
-                        padding: "24px",
-                        borderRadius: "8px",
-                        border: "1px solid rgba(203, 213, 225, 0.5)"
-                      }}>
-                        <BlockStack gap="300">
-                          <div>
-                            <Text as="p" variant="bodyMd">
-                              <strong>Add to Your Theme</strong>
-                            </Text>
-                            <Text as="p" variant="bodySm" color="subdued">
-                              Configure the country Popu-Up block directly from your Shopify theme editor
-                            </Text>
-                          </div>
-                          
-                          <Button variant="primary" size="large" fullWidth onClick={() => {
-                            try {
-                              if (!shop) {
-                                console.error('Shop information not available');
-                                return;
-                              }
-                              const shopName = shop.replace('.myshopify.com', '');
-                              const embedUrl = `https://admin.shopify.com/store/${shopName}/themes/current/editor?context=apps&template=index&activateAppId=${apiKey}/redirection_popup`;
-                              window.open(embedUrl, '_blank');
-                            } catch (error) {
-                              console.error('Error opening theme editor:', error);
-                            }
-                          }}>
-                            Open Theme Editor
-                          </Button>
-                          
-                          <Text as="p" variant="bodySm" color="subdued">
-                            Add the country selector to your published theme and customize its appearance in the theme editor.
-                          </Text>
-                        </BlockStack>
-                      </div>
+              <Card padding="0">
+                <Box padding="400">
+                  <InlineStack align="space-between" blockAlign="center" wrap gap="400">
+                    <BlockStack gap="200">
+                      <Text as="h2" variant="headingMd">Connect your theme</Text>
+                      <Text as="p" variant="bodySm" tone="subdued">
+                        Choose one embed for your storefront: the Popup or Auto Redirect.
+                      </Text>
+                      <InlineStack gap="200" blockAlign="center">
+                        <Badge tone="attention">Setup required</Badge>
+                        <Text as="p" variant="bodySm" tone="subdued">Takes about a minute</Text>
+                      </InlineStack>
                     </BlockStack>
-                  </div>
-                </BlockStack>
+                    <InlineStack gap="200" wrap>
+                      <Button variant="primary" onClick={() => openThemeEmbed("redirection_popup")}>
+                        Configure popup
+                      </Button>
+                      <Button onClick={() => openThemeEmbed("auto_redirect")}>
+                        Configure Auto Redirect
+                      </Button>
+                    </InlineStack>
+                  </InlineStack>
+                </Box>
               </Card>
             </BlockStack>
           </Layout.Section>

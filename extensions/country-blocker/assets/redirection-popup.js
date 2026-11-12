@@ -1,13 +1,9 @@
 (() => {
-  const STORAGE_KEY = 'redirection-popup-dismissed';
-  const COUNTRY_STORAGE_KEY = 'selected-market-country';
-  const COOKIE_NAME = 'redirection-popup-visited';
-  const COOKIE_DAYS = 30;
+  const STORAGE_KEY = 'redirection-popup-dismissed-v2';
 
   class RedirectionPopup {
     constructor() {
       this.popup = document.getElementById('redirection-popup-overlay');
-      this.openPopupBtn = document.getElementById('open-redirection-popup');
       this.modal = document.getElementById('redirection-popup-modal');
       this.closeBtn = document.getElementById('popup-close-btn');
       this.redirectBtn = document.getElementById('redirect-btn');
@@ -18,19 +14,18 @@
       this.selectedCountrySpan = document.getElementById('selected-country');
       this.settings = this.getBlockSettings();
       this.selectedCountryData = { code: '', type: '', redirectUrl: '' };
-      this.enableAutoRedirect = this.popup?.getAttribute('data-enable-auto-redirect') === 'true';
       
       this.init();
     }
 
-    init() {
+    async init() {
       if (!this.popup) return;
 
       this.applyThemeSettings();
       this.addMetafieldCountriesToList();
       this.attachEventListeners();
+      await this.handleAutoDetectCountry();
       this.checkAutoShowPopup();
-      this.handleAutoDetectCountry();
     }
 
     attachEventListeners() {
@@ -39,7 +34,6 @@
       const type = contentDiv?.getAttribute('data-popup-type');
 
       this.closeBtn?.addEventListener('click', () => this.closePopup());
-      this.openPopupBtn?.addEventListener('click', () => this.showPopup());
       this.redirectBtn?.addEventListener('click', () => this.handleRedirect());
       this.continueBtn?.addEventListener('click', () => this.closePopup());
       
@@ -226,25 +220,6 @@
       }
     }
 
-    setCookie(name, value, days = 30) {
-      const expires = new Date();
-      expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
-      const expiresStr = `expires=${expires.toUTCString()}`;
-      document.cookie = `${name}=${encodeURIComponent(value)}; ${expiresStr}; path=/`;
-    }
-
-    getCookie(name) {
-      const nameEQ = `${name}=`;
-      const cookies = document.cookie.split(';');
-      for (let cookie of cookies) {
-        cookie = cookie.trim();
-        if (cookie.indexOf(nameEQ) === 0) {
-          return decodeURIComponent(cookie.substring(nameEQ.length));
-        }
-      }
-      return null;
-    }
-
     applyThemeSettings() {
       if (!this.settings) return;
       
@@ -284,53 +259,30 @@
     }
 
     checkAutoShowPopup() {
-      // Automatic redirects are only used when the merchant enables them.
-      // The selector itself is never opened without a visitor action.
-      const isDismissed = sessionStorage.getItem(STORAGE_KEY);
-      const hasCookie = this.getCookie(COOKIE_NAME);
-      if (this.enableAutoRedirect && !isDismissed && !hasCookie) {
-        this.handleAutoRedirect();
-      }
+      const showOnLoad = this.popup?.getAttribute('data-show-on-load') === 'true';
+      let isDismissed = false;
+      try {
+        isDismissed = sessionStorage.getItem(STORAGE_KEY) === 'true';
+      } catch {}
+      if (showOnLoad && !isDismissed) this.showPopup();
     }
 
-    handleAutoDetectCountry() {
+    async handleAutoDetectCountry() {
       const enableGeo = this.popup?.getAttribute('data-enable-geolocation') === 'true';
-      
-      if (enableGeo && !this.enableAutoRedirect) {
-        this.setAutoDetectedCountry(this.popup?.dataset.country);
-      }
-    }
+      if (!enableGeo) return;
 
-    handleAutoRedirect() {
-      this.setCookie(COOKIE_NAME, 'true', COOKIE_DAYS);
-      sessionStorage.setItem(STORAGE_KEY, 'true');
-
-      this.performAutoRedirect(this.popup?.dataset.country);
-    }
-
-    performAutoRedirect(countryCode) {
-      if (!countryCode) {
-        console.warn('Country code not detected');
-        return;
+      const fallbackCountry = this.popup?.dataset.country;
+      let detectedCountry = fallbackCountry;
+      try {
+        detectedCountry = await window.CountryBlockerCountryDetection.getCountry(fallbackCountry);
+      } catch (error) {
+        console.warn('Could not detect visitor country.', error);
       }
 
-      const redirectRules = this.getRedirectRules();
-      let finalCountryCode = countryCode;
-
-      if (countryCode === 'HK' && redirectRules['CN']) {
-        finalCountryCode = 'CN';
-      }
-
-      const form = this.localizationForm?.querySelector('form');
-      const countryCodeInput = this.localizationForm?.querySelector('input[name="country_code"]');
-
-      if (redirectRules[finalCountryCode]) {
-        window.location.href = redirectRules[finalCountryCode];
-      } else if (form && countryCodeInput) {
-        countryCodeInput.value = finalCountryCode;
-        form.submit();
-      } else {
-        console.warn('Unable to perform auto-redirect');
+      if (detectedCountry) {
+        const detectedCountryName = (typeof countrydataJson !== 'undefined' && countrydataJson[detectedCountry]?.country) || detectedCountry;
+        this.popup.dataset.country = detectedCountry;
+        this.setAutoDetectedCountry(detectedCountry, detectedCountryName);
       }
     }
 
@@ -346,7 +298,7 @@
       return {};
     }
 
-    setAutoDetectedCountry(countryCode) {
+    setAutoDetectedCountry(countryCode, countryName = '') {
       const contentDiv = document.querySelector('.redirection-popup-content');
       const popupType = contentDiv?.getAttribute('data-popup-type');
       
@@ -357,122 +309,113 @@
       }
       
       if (popupType === 'location_confirmation') {
-        this.autoSelectLocationCountry(finalCountryCode);
+        this.autoSelectLocationCountry(finalCountryCode, countryName);
       } else if (popupType === 'simple_selector') {
-        this.autoSelectSimpleCountry(finalCountryCode);
+        this.autoSelectSimpleCountry(finalCountryCode, countryName);
       } else {
-        this.autoSelectDefaultCountry(finalCountryCode);
+        this.autoSelectDefaultCountry(finalCountryCode, countryName);
       }
     }
 
-    autoSelectLocationCountry(countryCode) {
+    autoSelectLocationCountry(countryCode, detectedCountryName = '') {
       const locationCountryList = document.getElementById('LocationCountryList');
-      if (!locationCountryList) return;
-      
-      const countryItem = Array.from(locationCountryList.querySelectorAll('a')).find(
+      const countryItem = Array.from(locationCountryList?.querySelectorAll('a') || []).find(
         el => el.getAttribute('data-country') === countryCode
       );
-      
-      if (countryItem) {
-        const countryName = countryItem.querySelector('.country-option-name')?.textContent || countryCode;
-        const currencyInfo = countryItem.querySelector('.country-currency')?.textContent || '';
-        
-        const locationCountryName = document.getElementById('location-country-name');
-        if (locationCountryName) {
-          locationCountryName.textContent = countryName;
-        }
-        
-        const flagImg = document.getElementById('location-selected-country-flag');
-        if (flagImg) {
-          flagImg.src = `https://raw.githubusercontent.com/hampusborgos/country-flags/main/png100px/${countryCode.toLowerCase()}.png`;
-          flagImg.onerror = function() { this.src = `https://flagcdn.com/${countryCode.toLowerCase()}.svg`; };
-        }
-        
-        const selectedCountrySpan = document.getElementById('location-selected-country');
-        if (selectedCountrySpan) {
-          selectedCountrySpan.innerHTML = `${countryName} ${currencyInfo}`;
-        }
-        
-        const countryCodeInput = this.localizationForm?.querySelector('input[name="country_code"]');
-        if (countryCodeInput) {
-          countryCodeInput.value = countryCode;
-        }
-        
-        if (countryCode) {
-          sessionStorage.setItem(COUNTRY_STORAGE_KEY, countryCode);
-        }
+
+      const countryName = countryItem?.querySelector('.country-option-name')?.textContent || detectedCountryName || countryCode;
+      const currencyInfo = countryItem?.querySelector('.country-currency')?.textContent || '';
+      const locationCountryName = document.getElementById('location-country-name');
+      if (locationCountryName) locationCountryName.textContent = countryName;
+
+      const largeFlagImg = document.querySelector('.location-flag-large');
+      if (largeFlagImg) {
+        largeFlagImg.src = `https://raw.githubusercontent.com/hampusborgos/country-flags/main/png100px/${countryCode.toLowerCase()}.png`;
+        largeFlagImg.alt = countryName;
+        largeFlagImg.onerror = function() { this.src = `https://flagcdn.com/${countryCode.toLowerCase()}.svg`; };
       }
+
+      const flagImg = document.getElementById('location-selected-country-flag');
+      if (flagImg) {
+        flagImg.src = `https://raw.githubusercontent.com/hampusborgos/country-flags/main/png100px/${countryCode.toLowerCase()}.png`;
+        flagImg.onerror = function() { this.src = `https://flagcdn.com/${countryCode.toLowerCase()}.svg`; };
+      }
+
+      const selectedCountrySpan = document.getElementById('location-selected-country');
+      if (selectedCountrySpan) selectedCountrySpan.textContent = `${countryName} ${currencyInfo}`.trim();
+
+      const countryCodeInput = this.localizationForm?.querySelector('input[name="country_code"]');
+      if (countryCodeInput) countryCodeInput.value = countryCode;
+      locationCountryList?.querySelectorAll('[aria-current="true"]').forEach((item) => item.removeAttribute('aria-current'));
+      if (countryItem) countryItem.setAttribute('aria-current', 'true');
     }
 
-    autoSelectSimpleCountry(countryCode) {
+    autoSelectSimpleCountry(countryCode, detectedCountryName = '') {
       const countryList = document.getElementById('CountryList');
-      if (!countryList) return;
-      
-      const countryItem = Array.from(countryList.querySelectorAll('a')).find(
+      const countryItem = Array.from(countryList?.querySelectorAll('a') || []).find(
         el => el.getAttribute('data-country') === countryCode
       );
-      
-      if (countryItem) {
-        const countryName = countryItem.querySelector('.country-option-name')?.textContent || countryCode;
-        const currencyInfo = countryItem.querySelector('.country-currency')?.textContent || '';
-        const countryType = countryItem.getAttribute('data-type');
-        const redirectUrl = countryItem.getAttribute('data-redirect-url');
-        
-        this.selectedCountryData = { code: countryCode, type: countryType, redirectUrl: redirectUrl };
-        
-        const flagImg = document.getElementById('selected-country-flag');
-        if (flagImg) {
-          flagImg.src = `https://raw.githubusercontent.com/hampusborgos/country-flags/main/png100px/${countryCode.toLowerCase()}.png`;
-          flagImg.onerror = function() { this.src = `https://flagcdn.com/${countryCode.toLowerCase()}.svg`; };
-        }
-        
-        const selectedCountrySpan = document.getElementById('selected-country');
-        if (selectedCountrySpan) {
-          selectedCountrySpan.innerHTML = `${countryName} ${currencyInfo}`;
-        }
-        
-        const countryCodeInput = this.localizationForm?.querySelector('input[name="country_code"]');
-        if (countryCodeInput) {
-          countryCodeInput.value = countryCode;
-        }
-        
-        if (countryCode) {
-          sessionStorage.setItem(COUNTRY_STORAGE_KEY, countryCode);
-        }
+
+      const countryName = countryItem?.querySelector('.country-option-name')?.textContent || detectedCountryName || countryCode;
+      const currencyInfo = countryItem?.querySelector('.country-currency')?.textContent || '';
+      const countryType = countryItem?.getAttribute('data-type') || 'shopify';
+      const redirectUrl = countryItem?.getAttribute('data-redirect-url') || '';
+      this.selectedCountryData = { code: countryCode, type: countryType, redirectUrl };
+
+      const flagImg = document.getElementById('selected-country-flag');
+      if (flagImg) {
+        flagImg.src = `https://raw.githubusercontent.com/hampusborgos/country-flags/main/png100px/${countryCode.toLowerCase()}.png`;
+        flagImg.onerror = function() { this.src = `https://flagcdn.com/${countryCode.toLowerCase()}.svg`; };
       }
+
+      const selectedCountrySpan = document.getElementById('selected-country');
+      if (selectedCountrySpan) selectedCountrySpan.textContent = `${countryName} ${currencyInfo}`.trim();
+
+      const countryCodeInput = this.localizationForm?.querySelector('input[name="country_code"]');
+      if (countryCodeInput) countryCodeInput.value = countryCode;
+      countryList?.querySelectorAll('[aria-current="true"]').forEach((item) => item.removeAttribute('aria-current'));
+      if (countryItem) countryItem.setAttribute('aria-current', 'true');
     }
 
-    autoSelectDefaultCountry(countryCode) {
+    autoSelectDefaultCountry(countryCode, detectedCountryName = '') {
       if (!this.countryList) return;
       
-      const countryItem = Array.from(this.countryList.querySelectorAll('a')).find(
-        el => el.getAttribute('data-country')?.includes(countryCode)
+      const countryItem = Array.from(this.countryList.querySelectorAll('[data-country]')).find(
+        el => el.getAttribute('data-country') === countryCode
       );
-      
-      if (countryItem) {
-        const countryName = countryItem.textContent;
-        const countryType = countryItem.getAttribute('data-type');
-        const redirectUrl = countryItem.getAttribute('data-redirect-url');
-        
-        this.selectedCountrySpan.textContent = countryName;
-        
-        const countryCodeInput = this.localizationForm?.querySelector('input[name="country_code"]');
-        if (countryCodeInput) {
-          countryCodeInput.value = countryCode;
-        }
-        
-        if (this.redirectBtn) {
-          if (countryType === 'custom' && redirectUrl) {
-            this.redirectBtn.dataset.redirectUrl = redirectUrl;
-            this.redirectBtn.dataset.isCustom = 'true';
-          } else {
-            delete this.redirectBtn.dataset.redirectUrl;
-            this.redirectBtn.dataset.isCustom = 'false';
-          }
-          
-          this.redirectBtn.disabled = false;
-        }
+
+      const countryName = countryItem?.querySelector('.country-option-name')?.textContent || countryItem?.textContent?.trim() || detectedCountryName || countryCode;
+      const countryType = countryItem?.getAttribute('data-type') || 'shopify';
+      const redirectUrl = countryItem?.getAttribute('data-redirect-url') || '';
+      if (this.selectedCountrySpan) this.selectedCountrySpan.textContent = countryName;
+
+      const flagImg = document.getElementById('selected-country-flag');
+      if (flagImg) {
+        flagImg.src = `https://raw.githubusercontent.com/hampusborgos/country-flags/main/png100px/${countryCode.toLowerCase()}.png`;
+        flagImg.onerror = function() { this.src = `https://flagcdn.com/${countryCode.toLowerCase()}.svg`; };
       }
+
+      const countryCodeInput = this.localizationForm?.querySelector('input[name="country_code"]');
+      if (countryCodeInput) countryCodeInput.value = countryCode;
+
+      this.selectedCountryData = { code: countryCode, type: countryType, redirectUrl };
+      if (countryItem?.classList.contains('country-grid-btn')) {
+        this.countryList.querySelectorAll('.country-grid-btn').forEach((button) => button.classList.remove('active'));
+        countryItem.classList.add('active');
+      }
+
+      if (this.redirectBtn) {
+        if (countryType === 'custom' && redirectUrl) {
+          this.redirectBtn.dataset.redirectUrl = redirectUrl;
+          this.redirectBtn.dataset.isCustom = 'true';
+        } else {
+          delete this.redirectBtn.dataset.redirectUrl;
+          this.redirectBtn.dataset.isCustom = 'false';
+        }
+        this.redirectBtn.disabled = false;
+      }
+      this.countryList.querySelectorAll('[aria-current="true"]').forEach((item) => item.removeAttribute('aria-current'));
+      if (countryItem) countryItem.setAttribute('aria-current', 'true');
     }
 
     toggleCountryList() {
@@ -612,7 +555,6 @@
         if (locationCountryList) locationCountryList.hidden = true;
         
         if (countryCode) {
-          sessionStorage.setItem(COUNTRY_STORAGE_KEY, countryCode);
         }
       } else if (!e.target.closest('.disclosure')) {
         const locationCountryBtn = document.getElementById('location-country-button');
@@ -627,7 +569,6 @@
     }
 
     handleLocationConfirm() {
-      this.setCookie(COOKIE_NAME, 'true', COOKIE_DAYS);
       this.closePopup();
     }
 
@@ -640,7 +581,6 @@
         return;
       }
       
-      this.setCookie(COOKIE_NAME, 'true', COOKIE_DAYS);
       this.closePopup();
       
       if (this.selectedCountryData.type === 'custom' && this.selectedCountryData.redirectUrl) {
@@ -694,7 +634,6 @@
         if (searchInput) searchInput.hidden = true;
         
         if (countryCode) {
-          sessionStorage.setItem(COUNTRY_STORAGE_KEY, countryCode);
         }
       } else if (!e.target.closest('.disclosure') && !e.target.classList.contains('country-search-input')) {
         this.countryButton.setAttribute('aria-expanded', false);
@@ -768,7 +707,6 @@
       }
 
       if (countryCode) {
-        sessionStorage.setItem(COUNTRY_STORAGE_KEY, countryCode);
       }
     }
 
@@ -790,7 +728,6 @@
         return;
       }
 
-      this.setCookie(COOKIE_NAME, 'true', COOKIE_DAYS);
       this.closePopup();
       
       if (isCustom && redirectUrl) {
@@ -805,12 +742,12 @@
     }
 
     handleFormSubmit() {
-      this.setCookie(COOKIE_NAME, 'true', COOKIE_DAYS);
       this.closePopup();
     }
 
     showPopup() {
       if (this.popup) {
+        this.returnFocusElement = document.activeElement;
         this.popup.style.display = 'flex';
       }
     }
@@ -818,8 +755,12 @@
     closePopup() {
       if (this.popup) {
         this.popup.style.display = 'none';
-        sessionStorage.setItem(STORAGE_KEY, 'true');
-        this.openPopupBtn?.focus();
+        try {
+          sessionStorage.setItem(STORAGE_KEY, 'true');
+        } catch {}
+        if (this.returnFocusElement?.isConnected && this.returnFocusElement !== document.body) {
+          this.returnFocusElement.focus();
+        }
       }
     }
   }

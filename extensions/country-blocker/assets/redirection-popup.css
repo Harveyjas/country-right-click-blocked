@@ -21,26 +21,6 @@
   backdrop-filter: blur(2px);
 }
 
-.redirection-popup-trigger {
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  z-index: 9998;
-  max-width: calc(100vw - 32px);
-  border: 0;
-  border-radius: 4px;
-  padding: 10px 14px;
-  background: var(--redirection-button-bg-color);
-  color: var(--redirection-button-text-color);
-  font: inherit;
-  cursor: pointer;
-}
-
-.redirection-popup-trigger:focus-visible {
-  outline: 2px solid currentColor;
-  outline-offset: 2px;
-}
-
 @keyframes fadeIn {
   from {
     opacity: 0;

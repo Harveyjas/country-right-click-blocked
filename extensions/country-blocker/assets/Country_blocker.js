@@ -1,5 +1,5 @@
 (() => {
-  const initializeCountryBlocker = () => {
+  const initializeCountryBlocker = async () => {
     const countriesElement = document.getElementById("blocked-countries");
     const blocker = document.getElementById("blocker-div");
     if (!countriesElement || !blocker) return;
@@ -12,7 +12,16 @@
       return;
     }
 
-    if (blockedCountries.includes(countriesElement.dataset.country)) {
+    const blockedCountryCodes = blockedCountries
+      .map((country) => (typeof country === "string" ? country : country?.code))
+      .filter(Boolean)
+      .map((countryCode) => countryCode.toUpperCase());
+    const visitorCountry = await window.CountryBlockerCountryDetection.getCountry(
+      countriesElement.dataset.country,
+    );
+    countriesElement.dataset.country = visitorCountry;
+
+    if (blockedCountryCodes.includes(visitorCountry)) {
       blocker.style.display = "flex";
     }
   };

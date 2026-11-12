@@ -20,7 +20,7 @@ export default function PrivacyPolicy() {
     <Page
       title="Privacy Policy"
       backAction={{
-        content: "Back to Dashboard",
+        content: "Home",
         url: "/app",
       }}
     >

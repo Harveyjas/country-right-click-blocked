@@ -1,6 +1,13 @@
 import { useState, useCallback, useEffect } from "react";
 import { json } from "@remix-run/node";
-import { useLoaderData, useSubmit, useActionData, useNavigation } from "@remix-run/react";
+import {
+  useLoaderData,
+  useSubmit,
+  useActionData,
+  useNavigation,
+  useNavigate,
+} from "@remix-run/react";
+import { SaveBar } from "@shopify/app-bridge-react";
 import {
   Page,
   Layout,
@@ -25,18 +32,47 @@ import {
   InfoIcon,
 } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
+import { useContextualSaveBar } from "../hooks/useContextualSaveBar";
+
+const SAVE_BAR_ID = "content-protection-save-bar";
+const THEME_BLOCK_HANDLE = "disable_shortcuts";
+
+function resolvePlan(activeSubscriptions = []) {
+  if (!activeSubscriptions.length) {
+    return { hasPlan: false, planType: "none" };
+  }
+
+  const premiumPlan = activeSubscriptions.find((sub) => {
+    const name = sub.name?.toLowerCase() || "";
+    return (
+      name.includes("forever 1") ||
+      name.includes("forever 2.99") ||
+      name.includes("2.99") ||
+      name.includes("growth") ||
+      name.includes("premium")
+    );
+  });
+
+  const freePlan = activeSubscriptions.find((sub) => {
+    const name = sub.name?.toLowerCase() || "";
+    return (
+      name.includes("forever free") ||
+      name.includes("essential") ||
+      name.includes("free")
+    );
+  });
+
+  if (premiumPlan) return { hasPlan: true, planType: "premium" };
+  if (freePlan) return { hasPlan: true, planType: "free" };
+  return { hasPlan: true, planType: "free" };
+}
 
 export const loader = async ({ request }) => {
   try {
     const { admin, session } = await authenticate.admin(request);
-    
-    // Get shop data from session
-    const shop = session.shop;
-    
-    // Check if the shop has an active subscription and get keyboard shortcuts settings
-    const response = await admin.graphql(
-      `#graphql
-      query getAppSubscriptionAndSettings {
+
+    const response = await admin.graphql(`#graphql
+      query ContentProtectionPage {
         currentAppInstallation {
           activeSubscriptions {
             id
@@ -51,96 +87,72 @@ export const loader = async ({ request }) => {
             value
           }
         }
-      }`
-    );
-    
-    const responseJson = await response.json();
-    console.log("Subscription and settings response:", responseJson);
-    
-    if (responseJson.errors) {
-      console.error("GraphQL errors:", responseJson.errors);
-      return json({ 
-        error: "Failed to fetch subscription status", 
-        details: responseJson.errors,
-        hasPlan: false,
-        planType: "none"
-      }, { status: 500 });
-    }
-    
-    const metafield = responseJson.data?.shop?.metafield;
-    const shopDomain = responseJson.data?.shop?.myshopifyDomain;
-    const activeSubscriptions = responseJson.data?.currentAppInstallation?.activeSubscriptions || [];
-    
-    // Default plan values
-    let hasPlan = false;
-    let planType = "none"; // "none", "free", or "premium"
-    
-    // If there are any active subscriptions, determine the plan type
-    if (activeSubscriptions.length > 0) {
-      hasPlan = true;
-      
-      // Check for plan type based on name
-      // Assuming plan names are "Forever Free", "Essential", "Forever 2.99", and "Growth"
-      const premiumPlan = activeSubscriptions.find(sub => 
-        sub.name?.toLowerCase().includes("forever 1") || 
-        sub.name?.toLowerCase().includes("forever 2.99") ||
-        sub.name?.toLowerCase().includes("2.99") ||
-        sub.name?.toLowerCase().includes("growth") ||
-        sub.name?.toLowerCase().includes("premium")
-      );
-      
-      const freePlan = activeSubscriptions.find(sub => 
-        sub.name?.toLowerCase().includes("forever free") || 
-        sub.name?.toLowerCase().includes("essential") ||
-        sub.name?.toLowerCase().includes("free")
-      );
-      
-      if (premiumPlan) {
-        planType = "premium";
-      } else if (freePlan) {
-        planType = "free";
       }
-      
-      console.log('Active subscription found:', planType);
+    `);
+
+    const responseJson = await response.json();
+
+    if (responseJson.errors) {
+      return json(
+        {
+          error: "Couldn't load content protection settings.",
+          hasPlan: false,
+          planType: "none",
+          isEnabled: false,
+          shopDomain: session.shop,
+          apiKey: process.env.SHOPIFY_API_KEY || "",
+        },
+        { status: 500 },
+      );
     }
-    
-    // Default to false if no metafield exists
+
+    const metafield = responseJson.data?.shop?.metafield;
+    const shopDomain =
+      responseJson.data?.shop?.myshopifyDomain || session.shop;
+    const activeSubscriptions =
+      responseJson.data?.currentAppInstallation?.activeSubscriptions || [];
+    const { hasPlan, planType } = resolvePlan(activeSubscriptions);
+
     let isEnabled = false;
-    
-    if (metafield && metafield.value) {
+    if (metafield?.value) {
       try {
-        isEnabled = JSON.parse(metafield.value);
-      } catch (parseError) {
-        console.error("Error parsing metafield value:", parseError);
+        isEnabled = JSON.parse(metafield.value) === true;
+      } catch {
+        isEnabled = false;
       }
     }
 
-    return json({ isEnabled, shopDomain, apiKey: process.env.SHOPIFY_API_KEY || "", hasPlan, planType });
+    return json({
+      isEnabled,
+      shopDomain,
+      apiKey: process.env.SHOPIFY_API_KEY || "",
+      hasPlan,
+      planType,
+    });
   } catch (error) {
-    console.error("Error in loader:", error);
-    return json({ 
-      error: "Failed to fetch Keyboard shortcuts settings", 
-      details: error.message,
-      hasPlan: false,
-      planType: "none"
-    }, { status: 500 });
+    return json(
+      {
+        error: "Couldn't load content protection settings.",
+        details: error.message,
+        hasPlan: false,
+        planType: "none",
+        isEnabled: false,
+        shopDomain: "",
+        apiKey: process.env.SHOPIFY_API_KEY || "",
+      },
+      { status: 500 },
+    );
   }
 };
 
 export const action = async ({ request }) => {
   try {
     const { admin } = await authenticate.admin(request);
-    
-    // Get the form data
     const formData = await request.formData();
     const enabled = formData.get("enabled") === "true";
-    
-    console.log("Updating keyboard shortcuts setting to:", enabled);
-    
-    // Check if the shop has a premium plan before allowing changes
-    const planResponse = await admin.graphql(
-      `#graphql
-      query getAppSubscription {
+
+    const planResponse = await admin.graphql(`#graphql
+      query {
         currentAppInstallation {
           activeSubscriptions {
             id
@@ -148,66 +160,50 @@ export const action = async ({ request }) => {
             status
           }
         }
-      }`
-    );
-    
-    const planResponseJson = await planResponse.json();
-    const activeSubscriptions = planResponseJson.data?.currentAppInstallation?.activeSubscriptions || [];
-    
-    // Check for premium plan
-    const premiumPlan = activeSubscriptions.find(sub => 
-      sub.name?.toLowerCase().includes("forever 1") || 
-      sub.name?.toLowerCase().includes("forever 2.99") ||
-      sub.name?.toLowerCase().includes("2.99") ||
-      sub.name?.toLowerCase().includes("growth") ||
-      sub.name?.toLowerCase().includes("premium")
-    );
-    
-    // If not on premium plan, don't allow enabling this feature
-    if (!premiumPlan) {
-      return json({ 
-        error: "This feature is only available on the Growth plan", 
-        success: false 
-      }, { status: 403 });
+      }
+    `);
+
+    const planJson = await planResponse.json();
+    const activeSubscriptions =
+      planJson.data?.currentAppInstallation?.activeSubscriptions || [];
+    const { planType } = resolvePlan(activeSubscriptions);
+
+    if (planType !== "premium") {
+      return json(
+        {
+          error: "Content protection is available on the Growth plan.",
+          success: false,
+        },
+        { status: 403 },
+      );
     }
-    
-    // Get the shop ID
-    const response = await admin.graphql(
-      `#graphql
-        query {
-          shop {
-            id
-          }
-        }
-      `
-    );
-    
-    const responseJson = await response.json();
-    
-    if (responseJson.errors) {
-      console.error("GraphQL errors:", responseJson.errors);
-      return json({ error: "Failed to get shop ID", details: responseJson.errors }, { status: 500 });
+
+    const shopResponse = await admin.graphql(`#graphql
+      query { shop { id } }
+    `);
+    const shopJson = await shopResponse.json();
+
+    if (shopJson.errors) {
+      return json(
+        { error: "Couldn't load shop details. Try again.", success: false },
+        { status: 500 },
+      );
     }
-    
-    const shopId = responseJson.data?.shop?.id;
+
+    const shopId = shopJson.data?.shop?.id;
     if (!shopId) {
-      console.error("No shop ID found");
-      return json({ error: "Failed to get shop ID" }, { status: 500 });
+      return json(
+        { error: "Couldn't load shop details. Try again.", success: false },
+        { status: 500 },
+      );
     }
-    
-    // Create or update the metafield
+
     const metafieldResponse = await admin.graphql(
       `#graphql
         mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
           metafieldsSet(metafields: $metafields) {
-            metafields {
-              id
-              value
-            }
-            userErrors {
-              field
-              message
-            }
+            metafields { id value }
+            userErrors { field message }
           }
         }
       `,
@@ -223,34 +219,40 @@ export const action = async ({ request }) => {
             },
           ],
         },
-      }
+      },
     );
-    
-    const metafieldResponseJson = await metafieldResponse.json();
-    
-    if (metafieldResponseJson.errors) {
-      console.error("GraphQL errors:", metafieldResponseJson.errors);
-      return json({ 
-        error: "Failed to save setting", 
-        details: metafieldResponseJson.errors 
-      }, { status: 500 });
+
+    const metafieldJson = await metafieldResponse.json();
+
+    if (metafieldJson.errors) {
+      return json(
+        { error: "Couldn't save setting. Try again.", success: false },
+        { status: 500 },
+      );
     }
-    
-    if (metafieldResponseJson.data?.metafieldsSet?.userErrors?.length > 0) {
-      console.error("Metafield save errors:", metafieldResponseJson.data.metafieldsSet.userErrors);
-      return json({ 
-        error: "Failed to save setting", 
-        details: metafieldResponseJson.data.metafieldsSet.userErrors 
-      }, { status: 500 });
+
+    if (metafieldJson.data?.metafieldsSet?.userErrors?.length > 0) {
+      return json(
+        {
+          error:
+            metafieldJson.data.metafieldsSet.userErrors[0]?.message ||
+            "Couldn't save setting. Try again.",
+          success: false,
+        },
+        { status: 500 },
+      );
     }
-    
-    return json({ success: true });
+
+    return json({ success: true, enabled });
   } catch (error) {
-    console.error("Error in action:", error);
-    return json({ 
-      error: "Failed to save setting", 
-      details: error.message 
-    }, { status: 500 });
+    return json(
+      {
+        error: "Couldn't save setting. Try again.",
+        details: error.message,
+        success: false,
+      },
+      { status: 500 },
+    );
   }
 };
 
@@ -284,21 +286,14 @@ const PROTECTION_GROUPS = [
       { keys: "Ctrl+P", label: "Print" },
       { keys: "Shift+F10", label: "Context menu" },
       { keys: "Right-click", label: "Context menu" },
-      { keys: "Ctrl+R / F5", label: "Reload page" },
     ],
   },
 ];
 
 function PlanBadge({ hasPlan, isPremiumPlan, isFreePlan }) {
-  if (!hasPlan) {
-    return <Badge tone="warning">No plan</Badge>;
-  }
-  if (isPremiumPlan) {
-    return <Badge tone="success">Growth</Badge>;
-  }
-  if (isFreePlan) {
-    return <Badge tone="info">Essential</Badge>;
-  }
+  if (!hasPlan) return <Badge tone="warning">No plan</Badge>;
+  if (isPremiumPlan) return <Badge tone="success">Growth</Badge>;
+  if (isFreePlan) return <Badge tone="info">Essential</Badge>;
   return <Badge>Plan active</Badge>;
 }
 
@@ -307,21 +302,27 @@ function StatusOverview({
   isPremiumPlan,
   hasPlan,
   isFreePlan,
+  isDirty,
   isSaving,
 }) {
   const protectionOn = enabled && isPremiumPlan;
 
-  let headline = "Content protection";
-  let detail = "Discourage casual copying with right-click and shortcut blocking.";
-
+  let detail =
+    "Discourage casual copying with right-click and shortcut blocking.";
   if (!hasPlan) {
-    detail = "Select a subscription plan, then upgrade to Growth to use this feature.";
+    detail =
+      "Select a subscription plan, then upgrade to Growth to use this feature.";
   } else if (isFreePlan) {
-    detail = "Available on the Growth plan. Upgrade to enable storefront protection.";
+    detail =
+      "Available on the Growth plan. Upgrade to enable storefront protection.";
+  } else if (isDirty) {
+    detail = "You have unsaved changes. Save or discard them with the save bar.";
   } else if (protectionOn) {
-    detail = "Protection is on. Right-click and selected shortcuts are blocked once the theme block is live.";
+    detail =
+      "Protection is on. Right-click and selected shortcuts are blocked once the theme embed is live.";
   } else if (isPremiumPlan) {
-    detail = "Turn protection on, then enable the app block in your theme editor.";
+    detail =
+      "Turn protection on, save your changes, then enable the app embed in your theme editor.";
   }
 
   return (
@@ -350,13 +351,18 @@ function StatusOverview({
             <BlockStack gap="100">
               <InlineStack gap="200" blockAlign="center" wrap>
                 <Text as="h2" variant="headingMd">
-                  {headline}
+                  Content protection
                 </Text>
                 <PlanBadge
                   hasPlan={hasPlan}
                   isPremiumPlan={isPremiumPlan}
                   isFreePlan={isFreePlan}
                 />
+                {isDirty && (
+                  <Badge tone="attention" size="small">
+                    Unsaved
+                  </Badge>
+                )}
                 {isSaving && (
                   <Badge tone="info" size="small">
                     Saving…
@@ -376,7 +382,12 @@ function StatusOverview({
             minWidth="120px"
           >
             <BlockStack gap="050">
-              <Text as="p" variant="headingXl" fontWeight="semibold" alignment="center">
+              <Text
+                as="p"
+                variant="headingXl"
+                fontWeight="semibold"
+                alignment="center"
+              >
                 {protectionOn ? "On" : "Off"}
               </Text>
               <Text as="p" variant="bodySm" tone="subdued" alignment="center">
@@ -390,41 +401,66 @@ function StatusOverview({
   );
 }
 
-function ThemeIntegrationCard({ isPremiumPlan, onEmbedClick }) {
+function ThemeIntegrationCard({ isPremiumPlan, themeStatus, onEmbedClick }) {
+  const isLive = themeStatus === "Active";
+
   return (
     <Card padding="0">
       <Box padding="400">
         <BlockStack gap="400">
-          <InlineStack gap="300" blockAlign="start" wrap={false}>
-            <Box
-              background="bg-fill-success-secondary"
-              padding="200"
-              borderRadius="200"
-              minHeight="40px"
-              minWidth="40px"
+          <InlineStack align="space-between" blockAlign="start" wrap gap="200">
+            <InlineStack gap="300" blockAlign="start" wrap={false}>
+              <Box
+                background="bg-fill-success-secondary"
+                padding="200"
+                borderRadius="200"
+                minHeight="40px"
+                minWidth="40px"
+              >
+                <InlineStack align="center" blockAlign="center">
+                  <Icon source={ThemeIcon} tone="success" />
+                </InlineStack>
+              </Box>
+              <BlockStack gap="050">
+                <Text as="h2" variant="headingMd">
+                  Theme integration
+                </Text>
+                <Text as="p" variant="bodySm" tone="subdued">
+                  Enable the Content protection app embed on your published
+                  theme.
+                </Text>
+              </BlockStack>
+            </InlineStack>
+            <Badge
+              tone={
+                themeStatus === "checking"
+                  ? "info"
+                  : isLive
+                    ? "success"
+                    : "attention"
+              }
+              size="small"
             >
-              <InlineStack align="center" blockAlign="center">
-                <Icon source={ThemeIcon} tone="success" />
-              </InlineStack>
-            </Box>
-            <BlockStack gap="050">
-              <Text as="h2" variant="headingMd">
-                Theme integration
-              </Text>
-              <Text as="p" variant="bodySm" tone="subdued">
-                Add the Content protection block so settings apply on your live storefront.
-              </Text>
-            </BlockStack>
+              {themeStatus === "checking"
+                ? "Checking…"
+                : isLive
+                  ? "Live on theme"
+                  : "Setup needed"}
+            </Badge>
           </InlineStack>
 
           {!isPremiumPlan ? (
             <Box background="bg-surface-warning" padding="300" borderRadius="200">
               <BlockStack gap="100">
-                <Text as="p" variant="bodyMd" fontWeight="semibold">
-                  Growth plan required
-                </Text>
+                <InlineStack gap="200" blockAlign="center">
+                  <Text as="p" variant="bodyMd" fontWeight="semibold">
+                    Growth plan required
+                  </Text>
+                  <Badge tone="attention">Growth</Badge>
+                </InlineStack>
                 <Text as="p" variant="bodySm" tone="subdued">
-                  Upgrade to Growth to unlock theme integration for content protection.
+                  Upgrade to Growth to unlock theme integration for content
+                  protection.
                 </Text>
               </BlockStack>
             </Box>
@@ -445,13 +481,14 @@ function ThemeIntegrationCard({ isPremiumPlan, onEmbedClick }) {
                   <InlineStack gap="200" blockAlign="start" wrap={false}>
                     <Badge tone="info">2</Badge>
                     <Text as="p" variant="bodySm">
-                      Enable the Content protection app block
+                      Enable the Content protection app embed
                     </Text>
                   </InlineStack>
                   <InlineStack gap="200" blockAlign="start" wrap={false}>
                     <Badge tone="info">3</Badge>
                     <Text as="p" variant="bodySm">
-                      Save — shortcut blocking goes live on the storefront
+                      Save the theme — shortcut blocking goes live on the
+                      storefront
                     </Text>
                   </InlineStack>
                 </BlockStack>
@@ -462,9 +499,8 @@ function ThemeIntegrationCard({ isPremiumPlan, onEmbedClick }) {
                 variant="primary"
                 size="large"
                 fullWidth
-                disabled={!isPremiumPlan}
               >
-                Open theme editor
+                {isLive ? "Manage in theme editor" : "Open theme editor"}
               </Button>
             </BlockStack>
           )}
@@ -473,11 +509,16 @@ function ThemeIntegrationCard({ isPremiumPlan, onEmbedClick }) {
       {isPremiumPlan && (
         <>
           <Divider />
-          <Box padding="300" paddingInline="400" background="bg-surface-secondary">
+          <Box
+            padding="300"
+            paddingInline="400"
+            background="bg-surface-secondary"
+          >
             <InlineStack gap="200" blockAlign="center" wrap={false}>
               <Icon source={CheckCircleIcon} tone="success" />
               <Text as="p" variant="bodySm" tone="subdued">
-                Toggle protection above, then enable the block once to go live.
+                Save protection settings above, then enable the embed once to go
+                live.
               </Text>
             </InlineStack>
           </Box>
@@ -499,10 +540,12 @@ function HowItWorksCard() {
         </InlineStack>
         <BlockStack gap="200">
           <Text as="p" variant="bodySm" tone="subdued">
-            When enabled, common copy shortcuts and right-click are blocked for visitors on your storefront.
+            When enabled, common copy shortcuts and right-click are blocked for
+            visitors on your storefront.
           </Text>
           <Text as="p" variant="bodySm" tone="subdued">
-            This discourages casual copying — it does not guarantee security or stop determined users.
+            This discourages casual copying. It does not guarantee security or
+            stop determined users.
           </Text>
         </BlockStack>
       </BlockStack>
@@ -538,7 +581,8 @@ function ProtectedShortcutsCard() {
               Shortcuts disabled
             </Text>
             <Text as="p" variant="bodySm" tone="subdued">
-              These actions are blocked on your storefront while protection is on
+              These actions are blocked on your storefront while protection is
+              on
             </Text>
           </BlockStack>
           <Badge tone="success">Active</Badge>
@@ -570,202 +614,200 @@ function ProtectedShortcutsCard() {
 }
 
 export default function Shortcuts() {
-  const { isEnabled, error, shopDomain, apiKey, hasPlan, planType } = useLoaderData();
-  const [enabled, setEnabled] = useState(isEnabled);
-  const [saveStatus, setSaveStatus] = useState({ success: false, error: null });
-  
+  const { isEnabled, error, shopDomain, apiKey, hasPlan, planType } =
+    useLoaderData();
+  const [savedEnabled, setSavedEnabled] = useState(isEnabled);
+  const [draftEnabled, setDraftEnabled] = useState(isEnabled);
+  const [feedback, setFeedback] = useState(null);
+  const [themeStatus, setThemeStatus] = useState("checking");
+
   const submit = useSubmit();
   const actionData = useActionData();
   const navigation = useNavigation();
-  
-  // Check if we're currently submitting
+  const navigate = useNavigate();
+
   const isSaving = navigation.state === "submitting";
-  
-  // Check if user is on premium plan (only premium plan can use keyboard shortcuts)
   const isPremiumPlan = planType === "premium";
   const isFreePlan = planType === "free";
-  
-  // Sync enabled state with loader data
-  useEffect(() => {
-    setEnabled(isEnabled);
-  }, [isEnabled]);
-  
-  // Handle action response
-  useEffect(() => {
-    if (actionData && navigation.state === "idle") {
-      if (actionData.success) {
-        setSaveStatus({ success: true, error: null });
-      } else if (actionData.error) {
-        setSaveStatus({ success: false, error: actionData.error });
-      }
-    }
-  }, [actionData, navigation.state]);
-  
-  // Success can clear automatically; errors remain visible until dismissed.
-  useEffect(() => {
-    if (saveStatus.success) {
-      const timer = setTimeout(() => {
-        setSaveStatus({ success: false, error: null });
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [saveStatus]);
-  
-  const handleToggle = useCallback(() => {
-    // Only allow premium plan users to toggle this feature
-    if (!isPremiumPlan) {
-      setSaveStatus({
-        success: false,
-        error: "This feature is only available on the Premium plan"
-      });
-      return;
-    }
-    
-    // Clear any previous save status
-    setSaveStatus({ success: false, error: null });
-    
-    const newEnabledState = !enabled;
-    
-    const formData = new FormData();
-    formData.append("enabled", newEnabledState.toString());
-    
-    submit(formData, { method: "post" });
-  }, [enabled, isPremiumPlan, submit]);
-  
-  const handleEmbedShortcutClick = useCallback(() => {
-    // Only allow premium plan users to access this feature
-    if (!isPremiumPlan) {
-      setSaveStatus({
-        success: false,
-        error: "This feature is only available on the Premium plan"
-      });
-      return;
-    }
-    
-    try {
-      if (!shopDomain) {
-        console.error('Shop information not available');
-        return;
-      }
-      
-      // Extract the shop name without .myshopify.com
-      const shopName = shopDomain.replace('.myshopify.com', '');
-      
-      // Construct the URL using admin.shopify.com format
+  const isDirty = draftEnabled !== savedEnabled;
 
-      const embedUrl = `https://admin.shopify.com/store/${shopName}/themes/current/editor?context=apps&template=index&activateAppId=${apiKey}/disable_shortcuts`;
-      console.log('Opening URL:', embedUrl);
-      console.log('shopNameeeee',shopName)
-      
-      // Open in a new tab
-      window.open(embedUrl, '_blank');
-    } catch (error) {
-      console.error('Error opening theme editor:', error);
+  useContextualSaveBar(SAVE_BAR_ID, isDirty && isPremiumPlan);
+
+  useEffect(() => {
+    setSavedEnabled(isEnabled);
+    setDraftEnabled(isEnabled);
+  }, [isEnabled]);
+
+  useEffect(() => {
+    if (!actionData || navigation.state !== "idle") return;
+
+    if (actionData.success) {
+      const next =
+        typeof actionData.enabled === "boolean"
+          ? actionData.enabled
+          : draftEnabled;
+      setSavedEnabled(next);
+      setDraftEnabled(next);
+      setFeedback({
+        tone: "success",
+        message: "Content protection settings saved.",
+      });
+    } else if (actionData.error) {
+      setFeedback({ tone: "critical", message: actionData.error });
     }
-  }, [shopDomain, isPremiumPlan]);
-  
-  const handleManagePricingClick = useCallback(() => {
-    try {
-      if (!shopDomain) {
-        console.error('Shop information not available');
-        return;
+  }, [actionData, navigation.state, draftEnabled]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const checkTheme = async () => {
+      try {
+        const extensions = await window.shopify?.app?.extensions();
+        const themeExtensions =
+          extensions?.filter((ext) => ext.type === "theme_app_extension") ||
+          [];
+
+        let status = "Not active";
+        for (const extension of themeExtensions) {
+          for (const activation of extension.activations || []) {
+            if (activation.handle === THEME_BLOCK_HANDLE) {
+              status =
+                activation.status === "active" ? "Active" : "Not active";
+            }
+          }
+        }
+        if (mounted) setThemeStatus(status);
+      } catch {
+        if (mounted) setThemeStatus("Not active");
       }
-      
-      // Extract the shop name without .myshopify.com
-      const shopName = shopDomain.replace('.myshopify.com', '');
-      
-      // Construct the URL for the pricing plans page
-      const pricingUrl = `https://admin.shopify.com/store/${shopName}/charges/insta-18/pricing_plans`;
-      console.log('Opening pricing URL:', pricingUrl);
-      
-      // Open in a new tab
-      window.open(pricingUrl, '_blank');
-    } catch (error) {
-      console.error('Error opening pricing page:', error);
-    }
-  }, [shopDomain, apiKey]);
-  
+    };
+
+    checkTheme();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleToggle = useCallback(() => {
+    if (!isPremiumPlan) return;
+    setFeedback(null);
+    setDraftEnabled((value) => !value);
+  }, [isPremiumPlan]);
+
+  const handleSave = useCallback(() => {
+    const formData = new FormData();
+    formData.append("enabled", draftEnabled.toString());
+    submit(formData, { method: "post" });
+  }, [draftEnabled, submit]);
+
+  const handleDiscard = useCallback(() => {
+    setDraftEnabled(savedEnabled);
+    setFeedback(null);
+  }, [savedEnabled]);
+
+  const handleEmbedShortcutClick = useCallback(() => {
+    if (!isPremiumPlan || !shopDomain) return;
+    const shopName = shopDomain.replace(".myshopify.com", "");
+    const embedUrl = `https://admin.shopify.com/store/${shopName}/themes/current/editor?context=apps&template=index&activateAppId=${apiKey}/${THEME_BLOCK_HANDLE}`;
+    window.open(embedUrl, "_blank");
+  }, [shopDomain, isPremiumPlan, apiKey]);
+
+  const handleManagePricingClick = useCallback(() => {
+    if (!shopDomain) return;
+    const shopName = shopDomain.replace(".myshopify.com", "");
+    window.open(
+      `https://admin.shopify.com/store/${shopName}/charges/insta-18/pricing_plans`,
+      "_blank",
+    );
+  }, [shopDomain]);
+
+  const pageBanner = error
+    ? { tone: "critical", message: error }
+    : !hasPlan
+      ? {
+          tone: "warning",
+          message: "Select a subscription plan to use this feature.",
+          action: {
+            content: "View plans",
+            onAction: handleManagePricingClick,
+          },
+        }
+      : isFreePlan
+        ? {
+            tone: "info",
+            message:
+              "Content protection is a Growth plan feature. Upgrade to unlock it.",
+            action: {
+              content: "Upgrade to Growth",
+              onAction: handleManagePricingClick,
+            },
+          }
+        : feedback;
+
   return (
     <Page
       title="Content protection"
       subtitle="Disable right-click and common keyboard shortcuts on your storefront."
-      backAction={{ content: "Dashboard", url: "/app" }}
-      primaryAction={{
-        content: "Manage Subscription",
-        onAction: handleManagePricingClick,
-        variant: "primary",
+      backAction={{
+        content: "Home",
+        onAction: async () => {
+          try {
+            if (isDirty && window.shopify?.saveBar?.leaveConfirmation) {
+              await window.shopify.saveBar.leaveConfirmation();
+            }
+            navigate("/app");
+          } catch {
+            // Merchant cancelled leave confirmation.
+          }
+        },
       }}
+      secondaryActions={
+        !isPremiumPlan
+          ? [
+              {
+                content: "View plans",
+                onAction: handleManagePricingClick,
+              },
+            ]
+          : undefined
+      }
     >
+      <SaveBar id={SAVE_BAR_ID} discardConfirmation="">
+        <button
+          variant="primary"
+          onClick={handleSave}
+          disabled={isSaving || !isPremiumPlan}
+          {...(isSaving ? { loading: "" } : {})}
+        />
+        <button onClick={handleDiscard} disabled={isSaving} />
+      </SaveBar>
+
       <BlockStack gap="500">
-        {(
-          !hasPlan ||
-          isFreePlan ||
-          saveStatus.success ||
-          saveStatus.error
-        ) && (
-          <BlockStack gap="300">
-            {!hasPlan && (
-              <Banner tone="warning">
-                <BlockStack gap="200">
-                  <Text as="p" variant="bodyMd">
-                    You need to select a subscription plan to use this feature.
-                  </Text>
-                  <InlineStack>
-                    <Button onClick={handleManagePricingClick} variant="primary">
-                      Manage Subscription
-                    </Button>
-                  </InlineStack>
-                </BlockStack>
-              </Banner>
-            )}
-
-            {isFreePlan && (
-              <Banner tone="info">
-                <BlockStack gap="200">
-                  <Text as="p" variant="bodyMd">
-                    You are on the <strong>Essential</strong> plan.
-                  </Text>
-                  <Text as="p" variant="bodyMd">
-                    <strong>Note:</strong> Keyboard shortcuts blocking is a Growth plan feature. Upgrade to the Growth plan to access this functionality.
-                  </Text>
-                  <InlineStack>
-                    <Button onClick={handleManagePricingClick} variant="primary">
-                      Upgrade to Growth
-                    </Button>
-                  </InlineStack>
-                </BlockStack>
-              </Banner>
-            )}
-
-            {saveStatus.success && (
-              <Banner tone="success">
-                <Text as="p" variant="bodyMd">
-                  Settings saved successfully!
-                </Text>
-              </Banner>
-            )}
-
-            {saveStatus.error && (
-              <Banner
-                tone="critical"
-                onDismiss={() => setSaveStatus({ success: false, error: null })}
-              >
-                <Text as="p" variant="bodyMd">
-                  {saveStatus.error}
-                </Text>
-              </Banner>
-            )}
-          </BlockStack>
+        {pageBanner && (
+          <Banner
+            tone={pageBanner.tone}
+            onDismiss={
+              pageBanner.tone === "critical" || pageBanner.tone === "success"
+                ? () => setFeedback(null)
+                : undefined
+            }
+            action={pageBanner.action}
+          >
+            <Text as="p" variant="bodyMd">
+              {pageBanner.message}
+            </Text>
+          </Banner>
         )}
 
         <Layout>
           <Layout.Section>
             <BlockStack gap="400">
               <StatusOverview
-                enabled={enabled}
+                enabled={draftEnabled}
                 isPremiumPlan={isPremiumPlan}
                 hasPlan={hasPlan}
                 isFreePlan={isFreePlan}
+                isDirty={isDirty}
                 isSaving={isSaving}
               />
 
@@ -780,11 +822,17 @@ export default function Shortcuts() {
                       <Icon source={LockIcon} tone="warning" />
                     </Box>
                     <BlockStack gap="050">
-                      <Text as="h2" variant="headingMd">
-                        Protection settings
-                      </Text>
+                      <InlineStack gap="200" blockAlign="center" wrap>
+                        <Text as="h2" variant="headingMd">
+                          Protection settings
+                        </Text>
+                        {!isPremiumPlan && (
+                          <Badge tone="attention">Growth</Badge>
+                        )}
+                      </InlineStack>
                       <Text as="p" variant="bodySm" tone="subdued">
-                        Turn this on to discourage casual copying on your storefront
+                        Turn this on to discourage casual copying on your
+                        storefront
                       </Text>
                     </BlockStack>
                   </InlineStack>
@@ -792,27 +840,53 @@ export default function Shortcuts() {
                 <Divider />
                 <Box padding="400">
                   <BlockStack gap="400">
-                    <div style={{ opacity: isPremiumPlan ? 1 : 0.5 }}>
+                    <div
+                      style={{
+                        opacity: isPremiumPlan ? 1 : 0.55,
+                        pointerEvents: isPremiumPlan ? "auto" : "none",
+                      }}
+                      aria-disabled={!isPremiumPlan}
+                    >
                       <SettingToggle
                         action={{
-                          content: enabled ? "Turn off" : "Turn on",
+                          content: draftEnabled ? "Turn off" : "Turn on",
                           onAction: handleToggle,
-                          loading: isSaving,
-                          disabled: !isPremiumPlan,
-                          variant: "primary"
+                          disabled: !isPremiumPlan || isSaving,
+                          variant: "primary",
                         }}
-                        enabled={enabled && isPremiumPlan}
+                        enabled={draftEnabled && isPremiumPlan}
                       >
                         <Text variant="headingMd" as="h6">
                           Content protection
                         </Text>
                         <Text variant="bodyMd" as="p">
-                          {enabled && isPremiumPlan
-                            ? "Protection is on. Right-click and selected shortcuts are blocked on your storefront." 
-                            : "Turn on to block right-click and shortcuts like Ctrl+C, Ctrl+U, and F12."}
+                          {draftEnabled && isPremiumPlan
+                            ? "Protection will be on after you save. Right-click and selected shortcuts are blocked on your storefront."
+                            : "Turn on, then save, to block right-click and shortcuts like Ctrl+C, Ctrl+U, and F12."}
                         </Text>
                       </SettingToggle>
                     </div>
+
+                    {!isPremiumPlan && (
+                      <Box
+                        background="bg-surface-secondary"
+                        padding="300"
+                        borderRadius="200"
+                      >
+                        <InlineStack gap="200" blockAlign="center" wrap>
+                          <Badge tone="attention">Growth</Badge>
+                          <Text as="p" variant="bodySm" tone="subdued">
+                            This setting is locked on your current plan.
+                          </Text>
+                          <Button
+                            variant="plain"
+                            onClick={handleManagePricingClick}
+                          >
+                            Upgrade to Growth
+                          </Button>
+                        </InlineStack>
+                      </Box>
+                    )}
 
                     <Box
                       background="bg-surface-secondary"
@@ -822,7 +896,9 @@ export default function Shortcuts() {
                       <InlineStack gap="200" blockAlign="start" wrap={false}>
                         <Icon source={AlertTriangleIcon} tone="caution" />
                         <Text as="p" variant="bodySm" tone="subdued">
-                          Disabling shortcuts does not prevent copying or guarantee security. It can also interfere with browser features and assistive technology.
+                          Disabling shortcuts does not prevent copying or
+                          guarantee security. It can also interfere with browser
+                          features and assistive technology.
                         </Text>
                       </InlineStack>
                     </Box>
@@ -830,7 +906,7 @@ export default function Shortcuts() {
                 </Box>
               </Card>
 
-              {enabled && isPremiumPlan && <ProtectedShortcutsCard />}
+              {draftEnabled && isPremiumPlan && <ProtectedShortcutsCard />}
             </BlockStack>
           </Layout.Section>
 
@@ -838,6 +914,7 @@ export default function Shortcuts() {
             <BlockStack gap="400">
               <ThemeIntegrationCard
                 isPremiumPlan={isPremiumPlan}
+                themeStatus={themeStatus}
                 onEmbedClick={handleEmbedShortcutClick}
               />
               <HowItWorksCard />
